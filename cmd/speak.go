@@ -187,7 +187,9 @@ func streamAndPlay(ctx context.Context, client *elevenlabs.Client, opts speakOpt
 	if err != nil {
 		return err
 	}
-	defer resp.Close()
+	defer func() {
+		_ = resp.Close()
+	}()
 
 	writers := make([]io.Writer, 0, 2)
 	var file io.WriteCloser
@@ -199,7 +201,9 @@ func streamAndPlay(ctx context.Context, client *elevenlabs.Client, opts speakOpt
 		if err != nil {
 			return err
 		}
-		defer file.Close()
+		defer func() {
+			_ = file.Close()
+		}()
 		writers = append(writers, file)
 	}
 
@@ -212,7 +216,7 @@ func streamAndPlay(ctx context.Context, client *elevenlabs.Client, opts speakOpt
 		go func() {
 			_, err := io.Copy(mw, resp)
 			copyErr <- err
-			pw.Close()
+			_ = pw.Close()
 		}()
 
 		playErr := audio.StreamToSpeakers(ctx, pr)
@@ -251,7 +255,7 @@ func convertAndPlay(ctx context.Context, client *elevenlabs.Client, opts speakOp
 		pr, pw := io.Pipe()
 		go func() {
 			_, _ = pw.Write(data)
-			pw.Close()
+			_ = pw.Close()
 		}()
 		return audio.StreamToSpeakers(ctx, pr)
 	}
@@ -284,11 +288,17 @@ func resolveVoice(ctx context.Context, client *elevenlabs.Client, voiceInput str
 			return "", err
 		}
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-		fmt.Fprintf(w, "VOICE ID\tNAME\tCATEGORY\n")
-		for _, v := range voices {
-			fmt.Fprintf(w, "%s\t%s\t%s\n", v.VoiceID, v.Name, v.Category)
+		if _, err := fmt.Fprintf(w, "VOICE ID\tNAME\tCATEGORY\n"); err != nil {
+			return "", err
 		}
-		_ = w.Flush()
+		for _, v := range voices {
+			if _, err := fmt.Fprintf(w, "%s\t%s\t%s\n", v.VoiceID, v.Name, v.Category); err != nil {
+				return "", err
+			}
+		}
+		if err := w.Flush(); err != nil {
+			return "", err
+		}
 		return "", nil
 	}
 

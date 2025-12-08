@@ -14,6 +14,12 @@ Requires Go 1.22+.
 
 ## Usage
 
+Features:
+- macOS `say`-style default: `sag "Hello"` routes to `speak` automatically.
+- Streaming playback to speakers with optional file output.
+- Voice discovery via `sag voices` and `-v ?`.
+- Speed/rate controls, latency tiers, and format inference from output extension.
+
 Speak (streams audio):
 ```bash
 sag speak -v Roger "Hello world"

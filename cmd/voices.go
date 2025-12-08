@@ -43,9 +43,13 @@ func init() {
 			}
 
 			w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-			fmt.Fprintf(w, "VOICE ID\tNAME\tCATEGORY\n")
+			if _, err := fmt.Fprintf(w, "VOICE ID\tNAME\tCATEGORY\n"); err != nil {
+				return err
+			}
 			for _, v := range voices {
-				fmt.Fprintf(w, "%s\t%s\t%s\n", v.VoiceID, v.Name, v.Category)
+				if _, err := fmt.Fprintf(w, "%s\t%s\t%s\n", v.VoiceID, v.Name, v.Category); err != nil {
+					return err
+				}
 			}
 			return w.Flush()
 		},

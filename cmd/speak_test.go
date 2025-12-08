@@ -44,11 +44,13 @@ func TestResolveTextFromFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("temp file: %v", err)
 	}
-	defer os.Remove(tmp.Name())
+	defer func() { _ = os.Remove(tmp.Name()) }()
 	if _, err := tmp.WriteString("from file"); err != nil {
 		t.Fatalf("write temp: %v", err)
 	}
-	tmp.Close()
+	if err := tmp.Close(); err != nil {
+		t.Fatalf("close temp: %v", err)
+	}
 
 	got, err := resolveText(nil, tmp.Name())
 	if err != nil {
@@ -70,7 +72,9 @@ func TestResolveTextFromStdin(t *testing.T) {
 	if _, err := w.WriteString("from stdin"); err != nil {
 		t.Fatalf("write pipe: %v", err)
 	}
-	w.Close()
+	if err := w.Close(); err != nil {
+		t.Fatalf("close pipe writer: %v", err)
+	}
 	os.Stdin = r
 
 	got, err := resolveText(nil, "")
@@ -84,7 +88,9 @@ func TestResolveTextFromStdin(t *testing.T) {
 
 func TestResolveVoiceDefaultsToFirst(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`{"voices":[{"voice_id":"id1","name":"Alpha","category":"premade"},{"voice_id":"id2","name":"Beta","category":"premade"}]}`))
+		if _, err := w.Write([]byte(`{"voices":[{"voice_id":"id1","name":"Alpha","category":"premade"},{"voice_id":"id2","name":"Beta","category":"premade"}]}`)); err != nil {
+			t.Fatalf("write response: %v", err)
+		}
 	}))
 	defer srv.Close()
 
@@ -104,7 +110,9 @@ func TestResolveVoiceByName(t *testing.T) {
 		if !strings.Contains(r.URL.RawQuery, "search=roger") {
 			t.Fatalf("expected search param to contain 'roger', got %s", r.URL.RawQuery)
 		}
-		w.Write([]byte(`{"voices":[{"voice_id":"id-roger","name":"Roger","category":"premade"}]}`))
+		if _, err := w.Write([]byte(`{"voices":[{"voice_id":"id-roger","name":"Roger","category":"premade"}]}`)); err != nil {
+			t.Fatalf("write response: %v", err)
+		}
 	}))
 	defer srv.Close()
 

@@ -12,12 +12,14 @@ import (
 	"time"
 )
 
+// Client talks to the ElevenLabs HTTP API.
 type Client struct {
 	baseURL    string
 	apiKey     string
 	httpClient *http.Client
 }
 
+// NewClient returns a Client configured with the given API key and base URL.
 func NewClient(apiKey, baseURL string) *Client {
 	if baseURL == "" {
 		baseURL = "https://api.elevenlabs.io"
@@ -31,6 +33,7 @@ func NewClient(apiKey, baseURL string) *Client {
 	}
 }
 
+// Voice represents a voice entry returned by ElevenLabs.
 type Voice struct {
 	VoiceID    string            `json:"voice_id"`
 	Name       string            `json:"name"`
@@ -68,7 +71,9 @@ func (c *Client) ListVoices(ctx context.Context, search string) ([]Voice, error)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode >= 400 {
 		return nil, fmt.Errorf("list voices failed: %s", resp.Status)
@@ -81,6 +86,7 @@ func (c *Client) ListVoices(ctx context.Context, search string) ([]Voice, error)
 	return body.Voices, nil
 }
 
+// TTSRequest configures a text-to-speech request payload.
 type TTSRequest struct {
 	Text          string         `json:"text"`
 	ModelID       string         `json:"model_id,omitempty"`
@@ -88,6 +94,7 @@ type TTSRequest struct {
 	OutputFormat  string         `json:"output_format,omitempty"`
 }
 
+// VoiceSettings tunes synthesis parameters for a request.
 type VoiceSettings struct {
 	Stability       float64 `json:"stability,omitempty"`
 	SimilarityBoost float64 `json:"similarity_boost,omitempty"`
@@ -127,7 +134,9 @@ func (c *Client) StreamTTS(ctx context.Context, voiceID string, payload TTSReque
 		return nil, err
 	}
 	if resp.StatusCode >= 400 {
-		defer resp.Body.Close()
+		defer func() {
+			_ = resp.Body.Close()
+		}()
 		b, _ := io.ReadAll(resp.Body)
 		return nil, fmt.Errorf("stream TTS failed: %s: %s", resp.Status, string(b))
 	}
@@ -159,7 +168,9 @@ func (c *Client) ConvertTTS(ctx context.Context, voiceID string, payload TTSRequ
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode >= 400 {
 		b, _ := io.ReadAll(resp.Body)
