@@ -57,7 +57,7 @@ func TestStreamTTS(t *testing.T) {
 	if err != nil {
 		t.Fatalf("StreamTTS error: %v", err)
 	}
-	defer rc.Close()
+	defer func() { _ = rc.Close() }()
 	b, _ := io.ReadAll(rc)
 	if string(b) != "audio-data" {
 		t.Fatalf("unexpected body: %q", string(b))
