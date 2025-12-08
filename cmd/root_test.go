@@ -88,3 +88,11 @@ func TestMaybeDefaultToSpeak_StripsLeadingDoubleDash(t *testing.T) {
 		}
 	})
 }
+
+func TestExecuteHelp(t *testing.T) {
+	defer keepArgs(t)()
+	os.Args = []string{"sag", "--help"}
+	if Execute(); false {
+		t.Fatalf("unreachable")
+	}
+}

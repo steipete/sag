@@ -32,6 +32,8 @@ type speakOptions struct {
 
 const defaultWPM = 175 // matches macOS `say` default rate
 
+var playToSpeakers = audio.StreamToSpeakers
+
 func init() {
 	opts := speakOptions{
 		modelID:   "eleven_multilingual_v2",
@@ -216,7 +218,7 @@ func streamAndPlay(ctx context.Context, client *elevenlabs.Client, opts speakOpt
 			_ = pw.Close()
 		}()
 
-		playErr := audio.StreamToSpeakers(ctx, pr)
+		playErr := playToSpeakers(ctx, pr)
 		copyErrVal := <-copyErr
 		if copyErrVal != nil {
 			return copyErrVal
@@ -254,7 +256,7 @@ func convertAndPlay(ctx context.Context, client *elevenlabs.Client, opts speakOp
 			_, _ = pw.Write(data)
 			_ = pw.Close()
 		}()
-		return audio.StreamToSpeakers(ctx, pr)
+		return playToSpeakers(ctx, pr)
 	}
 	if opts.outputPath == "" {
 		return errors.New("nothing to do: enable --play or provide --output")

@@ -199,6 +199,125 @@ func TestResolveVoiceListOutputsTable(t *testing.T) {
 	}
 }
 
+func TestStreamAndPlayWritesOutput(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.Contains(r.URL.Path, "/stream") {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+		_, _ = w.Write([]byte("stream-bytes"))
+	}))
+	defer srv.Close()
+
+	client := elevenlabs.NewClient("key", srv.URL)
+	tmp := t.TempDir()
+	out := tmp + "/out.mp3"
+	opts := speakOptions{voiceID: "v1", outputPath: out, stream: true, play: false}
+	payload := elevenlabs.TTSRequest{Text: "hi"}
+
+	if err := streamAndPlay(context.Background(), client, opts, payload); err != nil {
+		t.Fatalf("streamAndPlay error: %v", err)
+	}
+	data, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatalf("read output: %v", err)
+	}
+	if string(data) != "stream-bytes" {
+		t.Fatalf("unexpected output data: %q", string(data))
+	}
+}
+
+func TestConvertAndPlayWritesOutput(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.Contains(r.URL.Path, "/text-to-speech/") {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+		_, _ = w.Write([]byte("convert-bytes"))
+	}))
+	defer srv.Close()
+
+	client := elevenlabs.NewClient("key", srv.URL)
+	tmp := t.TempDir()
+	out := tmp + "/out.mp3"
+	opts := speakOptions{voiceID: "v1", outputPath: out, play: false}
+	payload := elevenlabs.TTSRequest{Text: "hi"}
+
+	if err := convertAndPlay(context.Background(), client, opts, payload); err != nil {
+		t.Fatalf("convertAndPlay error: %v", err)
+	}
+	data, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatalf("read output: %v", err)
+	}
+	if string(data) != "convert-bytes" {
+		t.Fatalf("unexpected output data: %q", string(data))
+	}
+}
+
+func TestStreamAndPlayRequiresWork(t *testing.T) {
+	client := elevenlabs.NewClient("key", "http://invalid")
+	opts := speakOptions{voiceID: "v1", play: false, stream: true}
+	payload := elevenlabs.TTSRequest{Text: "hi"}
+
+	err := streamAndPlay(context.Background(), client, opts, payload)
+	if err == nil {
+		t.Fatalf("expected error when no output and play disabled")
+	}
+}
+
+func TestStreamAndPlayWithPlayback(t *testing.T) {
+	called := false
+	restore := stubPlay(t, func(data []byte) {
+		called = true
+		if string(data) != "stream-play" {
+			t.Fatalf("unexpected data: %q", string(data))
+		}
+	})
+	defer restore()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("stream-play"))
+	}))
+	defer srv.Close()
+
+	client := elevenlabs.NewClient("key", srv.URL)
+	opts := speakOptions{voiceID: "v1", play: true, stream: true}
+	payload := elevenlabs.TTSRequest{Text: "hi"}
+
+	if err := streamAndPlay(context.Background(), client, opts, payload); err != nil {
+		t.Fatalf("streamAndPlay error: %v", err)
+	}
+	if !called {
+		t.Fatalf("expected playback to be invoked")
+	}
+}
+
+func TestConvertAndPlayWithPlayback(t *testing.T) {
+	called := false
+	restore := stubPlay(t, func(data []byte) {
+		called = true
+		if string(data) != "convert-play" {
+			t.Fatalf("unexpected data: %q", string(data))
+		}
+	})
+	defer restore()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("convert-play"))
+	}))
+	defer srv.Close()
+
+	client := elevenlabs.NewClient("key", srv.URL)
+	opts := speakOptions{voiceID: "v1", play: true, outputPath: "", stream: false}
+	payload := elevenlabs.TTSRequest{Text: "hi"}
+
+	if err := convertAndPlay(context.Background(), client, opts, payload); err != nil {
+		t.Fatalf("convertAndPlay error: %v", err)
+	}
+	if !called {
+		t.Fatalf("expected playback to be invoked")
+	}
+}
+
 func captureStdout(t *testing.T) (restore func(), read func() string) {
 	t.Helper()
 	orig := os.Stdout
@@ -255,4 +374,15 @@ func TestResolveVoiceByName(t *testing.T) {
 	if id != "id-roger" {
 		t.Fatalf("resolveVoice by name = %q, want id-roger", id)
 	}
+}
+
+func stubPlay(t *testing.T, fn func([]byte)) func() {
+	t.Helper()
+	orig := playToSpeakers
+	playToSpeakers = func(ctx context.Context, r io.Reader) error {
+		b, _ := io.ReadAll(r)
+		fn(b)
+		return nil
+	}
+	return func() { playToSpeakers = orig }
 }
