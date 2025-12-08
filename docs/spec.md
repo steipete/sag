@@ -16,7 +16,7 @@ CLI that mirrors macOS `say` but uses ElevenLabs for synthesis. Defaults to stre
   - `-r/--rate` words-per-minute (default 175) maps to ElevenLabs speed.
   - `-o/--output` same meaning; format inferred by extension when possible.
   - Accepts but ignores `--progress`, `--audio-device`, `--network-send`, `--interactive`, `--file-format`, `--data-format`, `--channels`, `--bit-rate`, `--quality`.
-- Required: voice (via `-v/--voice` or `ELEVENLABS_VOICE_ID`/`SAG_VOICE_ID`/legacy `SAY11_VOICE_ID`).
+- Required: voice (via `-v/--voice` or `ELEVENLABS_VOICE_ID`/`SAG_VOICE_ID`).
 - Flags:
   - `--model-id` (default `eleven_multilingual_v2`)
   - `--format` (default `mp3_44100_128`; `.wav` infers `pcm_44100`)
@@ -53,7 +53,7 @@ sag voices --search "english"
 
 ## Config sources
 - `ELEVENLABS_API_KEY` for auth (required).
-- Default voice env: `ELEVENLABS_VOICE_ID`, `SAG_VOICE_ID` (preferred), or legacy `SAY11_VOICE_ID`.
+- Default voice env: `ELEVENLABS_VOICE_ID` or `SAG_VOICE_ID`.
 - `--base-url` flag for alternate API host (defaults to `https://api.elevenlabs.io`).
 
 ## Notes & future polish

@@ -16,7 +16,7 @@ brew install steipete/tap/sag
 
 ## Configuration
 - `ELEVENLABS_API_KEY` (required)
-- Optional defaults: `ELEVENLABS_VOICE_ID`, `SAG_VOICE_ID` (preferred), or legacy `SAY11_VOICE_ID`
+- Optional defaults: `ELEVENLABS_VOICE_ID` or `SAG_VOICE_ID`
 
 ## Usage
 

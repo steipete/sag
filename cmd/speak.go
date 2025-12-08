@@ -65,9 +65,6 @@ func init() {
 				opts.voiceID = os.Getenv("ELEVENLABS_VOICE_ID")
 			}
 			if opts.voiceID == "" {
-				opts.voiceID = os.Getenv("SAY11_VOICE_ID")
-			}
-			if opts.voiceID == "" {
 				opts.voiceID = os.Getenv("SAG_VOICE_ID")
 			}
 			client := elevenlabs.NewClient(cfg.APIKey, cfg.BaseURL)

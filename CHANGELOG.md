@@ -8,7 +8,7 @@
 - macOS `say` compatibility: `-v/--voice`, `-r/--rate`, `-f/--input-file`, `-o/--output`, plus accepted no-op flags.
 - Auto-routing bare `sag ...` text/flags to `speak` subcommand, including npm/pnpm `--` pass-through support.
 - Speed control (`--speed` or `--rate`), latency tier selection, model/format overrides with extension inference.
-- Default voice fallback to first available when none provided; env support `ELEVENLABS_VOICE_ID`, `SAG_VOICE_ID`, `SAY11_VOICE_ID`.
+- Default voice fallback to first available when none provided; env support `ELEVENLABS_VOICE_ID` or `SAG_VOICE_ID`.
 - Config via `ELEVENLABS_API_KEY`/`SAG_API_KEY`; `--api-key` and `--base-url` overrides.
 - Tests for format inference, text sourcing, voice resolution helpers, and default `speak` routing behavior.
 - Help/README improvements: feature overview, examples for subcommand-less usage, and voice discovery guidance.
