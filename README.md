@@ -3,15 +3,16 @@
 One-liner TTS that works like `say`: stream to speakers by default, list voices, or save audio files.
 
 ## Install
-```bash
-go install ./cmd/sag
-```
-Requires Go 1.22+.
-
 Homebrew (macOS):
 ```bash
 brew install steipete/tap/sag  # auto-taps steipete/tap
 ```
+
+Go toolchain:
+```bash
+go install ./cmd/sag
+```
+Requires Go 1.22+.
 
 ## Configuration
 - `ELEVENLABS_API_KEY` (required)
