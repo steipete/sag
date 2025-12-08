@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -86,6 +87,12 @@ func TestResolveTextFromStdin(t *testing.T) {
 	}
 }
 
+func TestResolveTextFileNotFound(t *testing.T) {
+	if _, err := resolveText(nil, "/tmp/does-not-exist-sag"); err == nil {
+		t.Fatalf("expected error for missing file")
+	}
+}
+
 func TestResolveTextEmptySources(t *testing.T) {
 	// With no args, no file, and stdin still a TTY, expect an error.
 	if _, err := resolveText(nil, ""); err == nil {
@@ -125,6 +132,107 @@ func TestResolveVoiceDefaultsToFirst(t *testing.T) {
 	if id != "id1" {
 		t.Fatalf("resolveVoice default id = %q, want id1", id)
 	}
+}
+
+func TestResolveVoicePassThroughID(t *testing.T) {
+	// Should short-circuit without hitting the server when input looks like an ID.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatalf("server should not be called for ID pass-through")
+	}))
+	defer srv.Close()
+
+	client := elevenlabs.NewClient("key", srv.URL)
+	id, err := resolveVoice(context.Background(), client, "abc1234567890123")
+	if err != nil {
+		t.Fatalf("resolveVoice error: %v", err)
+	}
+	if id != "abc1234567890123" {
+		t.Fatalf("expected ID to pass through, got %q", id)
+	}
+}
+
+func TestResolveVoiceClosestMatch(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if _, err := w.Write([]byte(`{"voices":[{"voice_id":"id1","name":"Near","category":"premade"}]}`)); err != nil {
+			t.Fatalf("write response: %v", err)
+		}
+	}))
+	defer srv.Close()
+
+	restore, read := captureStderr(t)
+	defer restore()
+
+	client := elevenlabs.NewClient("key", srv.URL)
+	id, err := resolveVoice(context.Background(), client, "nothing-match")
+	if err != nil {
+		t.Fatalf("resolveVoice error: %v", err)
+	}
+	if id != "id1" {
+		t.Fatalf("expected closest id1, got %q", id)
+	}
+	if out := read(); !strings.Contains(out, "using closest voice match") {
+		t.Fatalf("expected closest match notice, got %q", out)
+	}
+}
+
+func TestResolveVoiceListOutputsTable(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if _, err := w.Write([]byte(`{"voices":[{"voice_id":"id1","name":"Alpha","category":"premade"}]}`)); err != nil {
+			t.Fatalf("write response: %v", err)
+		}
+	}))
+	defer srv.Close()
+
+	restore, read := captureStdout(t)
+	defer restore()
+
+	client := elevenlabs.NewClient("key", srv.URL)
+	id, err := resolveVoice(context.Background(), client, "?")
+	if err != nil {
+		t.Fatalf("resolveVoice error: %v", err)
+	}
+	if id != "" {
+		t.Fatalf("expected empty ID when listing voices, got %q", id)
+	}
+	if out := read(); !strings.Contains(out, "VOICE ID") || !strings.Contains(out, "Alpha") {
+		t.Fatalf("expected table output, got %q", out)
+	}
+}
+
+func captureStdout(t *testing.T) (restore func(), read func() string) {
+	t.Helper()
+	orig := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	os.Stdout = w
+	return func() {
+			_ = w.Close()
+			os.Stdout = orig
+		}, func() string {
+			_ = w.Close()
+			b, _ := io.ReadAll(r)
+			return string(b)
+		}
+}
+
+func captureStderr(t *testing.T) (restore func(), read func() string) {
+	t.Helper()
+	orig := os.Stderr
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	os.Stderr = w
+	return func() {
+			_ = w.Close()
+			os.Stderr = orig
+		}, func() string {
+			_ = w.Close()
+			b, _ := io.ReadAll(r)
+			return string(b)
+		}
 }
 
 func TestResolveVoiceByName(t *testing.T) {
