@@ -19,6 +19,8 @@ var (
 	rootCmd     = &cobra.Command{
 		Use:     "sag",
 		Short:   "Command-line ElevenLabs TTS with macOS playback",
+		Long:    "Command-line ElevenLabs TTS with macOS playback. Call it like macOS 'say': if you skip the subcommand, text args are passed to 'speak' (e.g. `sag \"Hello\"`).",
+		Example: "  sag \"Hi Peter\"\n  echo 'piped input' | sag\n  sag speak -v Roger --rate 200 \"Faster speech\"",
 		Version: "0.1.0",
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			if versionFlag {
@@ -50,6 +52,15 @@ func maybeDefaultToSpeak() {
 	if len(os.Args) <= 1 {
 		return
 	}
+
+	// npm/pnpm pass-through typically prefixes args with "--"; drop it so flags still parse.
+	if os.Args[1] == "--" {
+		os.Args = append([]string{os.Args[0]}, os.Args[2:]...)
+		if len(os.Args) <= 1 {
+			return
+		}
+	}
+
 	first := os.Args[1]
 	if isKnownSubcommand(first) || first == "-h" || first == "--help" {
 		return

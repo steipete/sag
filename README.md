@@ -19,6 +19,11 @@ Speak (streams audio):
 sag speak -v Roger "Hello world"
 ```
 
+Call it like macOS `say`: omitting the subcommand pipes text to `speak` by default.
+```bash
+sag "Hello world"
+```
+
 macOS `say` compatibility shortcuts (subcommand optional):
 ```bash
 sag -v Roger -r 200 "Faster speech"
