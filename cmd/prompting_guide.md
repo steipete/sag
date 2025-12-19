@@ -51,7 +51,7 @@ Notes:
 ## Knobs in `sag` (0.2.0)
 
 Voice sliders:
-- `--stability 0..1` (higher = more consistent, less expressive)
+- `--stability` (v3 presets: 0.0=Creative, 0.5=Natural, 1.0=Robust; v2/v2.5: 0..1)
 - `--similarity 0..1` (higher = closer to reference voice, less flexible)
 - `--style 0..1` (higher = more “styled” delivery; voice/model dependent)
 - `--speaker-boost` (can add clarity; model dependent)

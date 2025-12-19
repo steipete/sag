@@ -48,8 +48,8 @@ func TestSpeakCommand_FlagsBuildRequestAndMetrics(t *testing.T) {
 		if !ok {
 			t.Fatalf("expected voice_settings object, got %T", got["voice_settings"])
 		}
-		if vs["stability"] != 0.55 {
-			t.Fatalf("expected stability 0.55, got %v", vs["stability"])
+		if vs["stability"] != 0.5 {
+			t.Fatalf("expected stability 0.5, got %v", vs["stability"])
 		}
 		if vs["similarity_boost"] != 0.8 {
 			t.Fatalf("expected similarity_boost 0.8, got %v", vs["similarity_boost"])
@@ -81,7 +81,7 @@ func TestSpeakCommand_FlagsBuildRequestAndMetrics(t *testing.T) {
 		"--play=false",
 		"--output", outPath,
 		"--metrics",
-		"--stability", "0.55",
+		"--stability", "0.5",
 		"--similarity-boost", "0.8",
 		"--style", "0.1",
 		"--speaker-boost",

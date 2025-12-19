@@ -143,3 +143,15 @@ func TestBuildTTSRequest_SpeakerBoostConflict(t *testing.T) {
 		t.Fatalf("expected conflict error, got %v", err)
 	}
 }
+
+func TestBuildTTSRequest_V3StabilityPresetsOnly(t *testing.T) {
+	cmd, opts := newSpeakTestCommand(t)
+	opts.modelID = "eleven_v3"
+	if err := cmd.Flags().Parse([]string{"--stability", "0.55"}); err != nil {
+		t.Fatalf("parse flags: %v", err)
+	}
+	_, err := buildTTSRequest(cmd, *opts, "hello")
+	if err == nil || !strings.Contains(err.Error(), "for eleven_v3, stability must be one of") {
+		t.Fatalf("expected v3 stability preset error, got %v", err)
+	}
+}

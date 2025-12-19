@@ -59,7 +59,7 @@ Key flags (subset):
 - `-f, --input-file` read text from file (`-` for stdin)
 - `-o, --output` write audio file; format inferred by extension (`.wav` -> PCM, `.mp3` -> MP3)
 - `--speed` explicit speed multiplier (0.5–2.0)
-- `--stability` 0..1 (higher = more consistent, less expressive)
+- `--stability` v3: `0|0.5|1` (Creative/Natural/Robust); v2/v2.5: 0..1 (higher = more consistent, less expressive)
 - `--similarity` / `--similarity-boost` 0..1 (higher = closer to the reference voice)
 - `--style` 0..1 (higher = more stylized delivery; model/voice dependent)
 - `--speaker-boost` / `--no-speaker-boost` toggle clarity boost (model dependent)

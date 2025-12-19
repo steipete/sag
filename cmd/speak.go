@@ -176,6 +176,11 @@ func buildTTSRequest(cmd *cobra.Command, opts speakOptions, text string) (eleven
 		if opts.stability < 0 || opts.stability > 1 {
 			return elevenlabs.TTSRequest{}, errors.New("stability must be between 0 and 1")
 		}
+		if opts.modelID == "eleven_v3" {
+			if !floatEqualsOneOf(opts.stability, []float64{0, 0.5, 1}) {
+				return elevenlabs.TTSRequest{}, errors.New("for eleven_v3, stability must be one of 0.0, 0.5, 1.0 (Creative/Natural/Robust)")
+			}
+		}
 		stabilityPtr = &opts.stability
 	}
 
@@ -257,6 +262,20 @@ func buildTTSRequest(cmd *cobra.Command, opts speakOptions, text string) (eleven
 			UseSpeakerBoost: speakerBoostPtr,
 		},
 	}, nil
+}
+
+func floatEqualsOneOf(v float64, allowed []float64) bool {
+	const eps = 1e-9
+	for _, a := range allowed {
+		d := v - a
+		if d < 0 {
+			d = -d
+		}
+		if d <= eps {
+			return true
+		}
+	}
+	return false
 }
 
 func resolveText(args []string, inputFile string) (string, error) {
