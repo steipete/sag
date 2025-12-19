@@ -18,7 +18,7 @@ CLI that mirrors macOS `say` but uses ElevenLabs for synthesis. Defaults to stre
   - Accepts but ignores `--progress`, `--audio-device`, `--network-send`, `--interactive`, `--file-format`, `--data-format`, `--channels`, `--bit-rate`, `--quality`.
 - Required: voice (via `-v/--voice` or `ELEVENLABS_VOICE_ID`/`SAG_VOICE_ID`).
 - Flags:
-  - `--model-id` (default `eleven_multilingual_v2`)
+  - `--model-id` (default `eleven_v3`; recommended stable baseline: `eleven_multilingual_v2`)
   - `--format` (default `mp3_44100_128`; `.wav` infers `pcm_44100`)
   - `--stream/--no-stream` (default stream)
   - `--latency-tier` (0-4, default 0)

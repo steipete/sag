@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.1 - 2025-12-19
+### Changed
+- Default model is now `eleven_v3` (override with `--model-id eleven_multilingual_v2` for a stable baseline).
+
 ## 0.2.0 - 2025-12-19
 ### Added
 - Voice control flags: `--stability`, `--similarity`/`--similarity-boost`, `--style`, `--speaker-boost`/`--no-speaker-boost`.

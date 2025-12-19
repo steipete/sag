@@ -25,6 +25,7 @@ Features:
 - Streaming playback to speakers with optional file output.
 - Voice discovery via `sag voices` and `-v ?`.
 - Speed/rate controls, latency tiers, and format inference from output extension.
+- Model selection via `--model-id` (defaults to `eleven_v3`; use `eleven_multilingual_v2` for a stable baseline).
 
 Speak (streams audio):
 ```bash
@@ -48,6 +49,7 @@ More examples:
 echo "piped input" | sag speak -v Roger
 sag speak -v Roger --stream --latency-tier 3 "Faster start"
 sag speak -v Roger --speed 1.2 "Talk a bit faster"
+sag speak -v Roger --model-id eleven_multilingual_v2 "Use stable v2 baseline"
 sag speak -v Roger --output out.wav --format pcm_44100 "Wave output"
 ```
 

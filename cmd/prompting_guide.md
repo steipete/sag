@@ -4,15 +4,17 @@ Goal: “more natural” output + controllable delivery.
 
 ## Choose model (matters)
 
-### v2 / v2.5 (default in `sag`)
-- Best baseline for “just speak this”.
-- Supports SSML `<break time="1.5s" />` for precise pauses (up to ~3s).
-- Some English-only models support SSML `<phoneme>` for pronunciation (not yet exposed in `sag`).
-
-### v3 (alpha)
+### v3 (alpha) (default in `sag`)
+- Model ID: `eleven_v3`
 - Uses inline audio tags: lowercase `[square brackets]` inside your text.
 - SSML `<break>` is *not* supported; use v3 pause tags instead: `[pause]`, `[short pause]`, `[long pause]`.
 - Short prompts can be unstable; longer scripts tend to behave better (aim 250+ chars).
+
+### v2 / v2.5 (stable baseline)
+- Model ID: `eleven_multilingual_v2`
+- Best baseline for “just speak this”.
+- Supports SSML `<break time="1.5s" />` for precise pauses (up to ~3s).
+- Some English-only models support SSML `<phoneme>` for pronunciation (not yet exposed in `sag`).
 
 ## Universal “make it sound good” rules
 - Write like a script: short sentences; newlines for beats.
@@ -67,4 +69,3 @@ Expressive (v3):
 sag speak -v Roger --model-id eleven_v3 --stability 0.35 --normalize off --lang en \
   "[whispers] Don’t move. [short pause] Something’s in the hallway…"
 ```
-
