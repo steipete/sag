@@ -13,17 +13,16 @@ linters:
     - ineffassign
     - errcheck
 
-linters-settings:
-  revive:
-    enable-all-rules: false
-    severity: warning
-    rules:
-      - name: exported
-        severity: warning
-      - name: var-naming
-        severity: warning
+  settings:
+    revive:
+      enable-all-rules: false
+      severity: warning
+      rules:
+        - name: exported
+          severity: warning
+        - name: var-naming
+          severity: warning
 
 issues:
-  exclude-use-default: false
   max-issues-per-linter: 0
   max-same-issues: 0
