@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/hajimehoshi/go-mp3"
-	"github.com/hajimehoshi/oto/v2"
+	"github.com/ebitengine/oto/v3"
 )
 
 // StreamToSpeakers decodes MP3 audio from the reader and plays it to the default output device.
@@ -22,7 +22,11 @@ func StreamToSpeakers(ctx context.Context, r io.Reader) error {
 		format       = oto.FormatSignedInt16LE
 	)
 
-	audioCtx, ready, err := oto.NewContext(decoder.SampleRate(), channelCount, format)
+	audioCtx, ready, err := oto.NewContext(&oto.NewContextOptions{
+		SampleRate:      decoder.SampleRate(),
+		ChannelCount:    channelCount,
+		Format:          format,
+	})
 	if err != nil {
 		return fmt.Errorf("audio context: %w", err)
 	}
