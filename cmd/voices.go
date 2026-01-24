@@ -14,13 +14,15 @@ import (
 )
 
 type voicesOptions struct {
-	search string
-	limit  int
+	search   string
+	limit    int
+	category string
 }
 
 func init() {
 	opts := voicesOptions{
-		limit: 100,
+		limit:    100,
+		category: "all",
 	}
 
 	cmd := &cobra.Command{
@@ -34,7 +36,12 @@ func init() {
 			ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)
 			defer cancel()
 
-			voices, err := client.ListVoices(ctx, "")
+			category, err := normalizeVoiceCategory(opts.category)
+			if err != nil {
+				return err
+			}
+
+			voices, err := client.ListVoices(ctx, category)
 			if err != nil {
 				return err
 			}
@@ -61,6 +68,7 @@ func init() {
 
 	cmd.Flags().StringVar(&opts.search, "search", "", "Filter voices by name or ID (client-side)")
 	cmd.Flags().IntVar(&opts.limit, "limit", opts.limit, "Maximum rows to display (0 = all)")
+	cmd.Flags().StringVar(&opts.category, "category", opts.category, "Server-side voice category: system|voice_cloning|voice_generation|all")
 	rootCmd.AddCommand(cmd)
 }
 

@@ -56,6 +56,7 @@ sag speak -v "Your Voice" --output out.wav --format wav "Wave output"
 
 Key flags (subset):
 - `-v, --voice` voice name or ID (`?` to list)
+- `--voice-category` MiniMax voice category (`system|voice_cloning|voice_generation|all`)
 - `--api-key-file` read API key from a file
 - `-r, --rate` words per minute (maps to speed; default 175)
 - `-f, --input-file` read text from file (`-` for stdin)
@@ -64,7 +65,7 @@ Key flags (subset):
 - `--emotion` (model dependent)
 - `--pitch` (model dependent)
 - `--volume` (model dependent)
-- `--normalize` `auto|on|off` (text normalization; when set)
+- `--normalize` `auto|on|off` (auto uses server default text normalization)
 - `--lang` language boost hint (e.g. `en`, `zh`, `auto`)
 - `--format` output format (e.g. `mp3_44100_128`, `mp3`, `wav`)
 - `--stream/--no-stream` stream while generating (default on)
@@ -73,7 +74,7 @@ Key flags (subset):
 
 Voices:
 ```bash
-sag voices --search english --limit 20
+sag voices --category system --search english --limit 20
 ```
 
 ## Prompting (make it sound better)

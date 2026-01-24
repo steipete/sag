@@ -13,6 +13,7 @@ CLI that mirrors macOS `say` but uses MiniMax for synthesis. Defaults to streami
 - Text input: pass as args, `-f/--input-file` (use `-` for stdin), or pipe stdin.
 - macOS `say` compatibility:
   - `-v/--voice` accepts voice **name** or ID; `?` lists voices.
+  - `--voice-category` restricts voice lookup to a MiniMax category (`system|voice_cloning|voice_generation|all`).
   - `-r/--rate` words-per-minute (default 175) maps to speed.
   - `-o/--output` same meaning; format inferred by extension when possible.
   - Accepts but ignores `--progress`, `--audio-device`, `--network-send`, `--interactive`, `--file-format`, `--data-format`, `--channels`, `--bit-rate`, `--quality`.
@@ -26,7 +27,7 @@ CLI that mirrors macOS `say` but uses MiniMax for synthesis. Defaults to streami
   - `--emotion` (model dependent)
   - `--pitch` (model dependent)
   - `--volume` (model dependent)
-  - `--normalize` (`auto|on|off`; when set)
+  - `--normalize` (`auto|on|off`; auto = server default)
   - `--lang` (language boost hint; when set)
   - `--metrics` print basic stats to stderr
   - `--output <path>` save audio while optionally playing
@@ -50,6 +51,7 @@ sag speak -v "Roger" -r 200 "mac say style flags"
 - Flags:
   - `--search <query>`: filter by name/id
   - `--limit <n>`: truncate output (default 100)
+  - `--category`: server-side voice category (`system|voice_cloning|voice_generation|all`; default all)
 
 Sample:
 ```

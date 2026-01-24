@@ -19,18 +19,19 @@ import (
 )
 
 type speakOptions struct {
-	voiceID    string
-	modelID    string
-	outputPath string
-	outputFmt  string
-	stream     bool
-	play       bool
-	speed      float64
-	rateWPM    int
-	inputFile  string
-	normalize  string
-	lang       string
-	metrics    bool
+	voiceID       string
+	voiceCategory string
+	modelID       string
+	outputPath    string
+	outputFmt     string
+	stream        bool
+	play          bool
+	speed         float64
+	rateWPM       int
+	inputFile     string
+	normalize     string
+	lang          string
+	metrics       bool
 
 	emotion string
 	pitch   int
@@ -43,11 +44,12 @@ var playToSpeakers = audio.StreamToSpeakers
 
 func init() {
 	opts := speakOptions{
-		modelID:   "speech-01",
-		outputFmt: "mp3_44100_128",
-		stream:    true,
-		play:      true,
-		speed:     1.0,
+		modelID:       "speech-01",
+		outputFmt:     "mp3_44100_128",
+		stream:        true,
+		play:          true,
+		speed:         1.0,
+		voiceCategory: "all",
 	}
 
 	cmd := &cobra.Command{
@@ -76,7 +78,12 @@ func init() {
 			}
 			client := minimax.NewClient(cfg.APIKey, cfg.BaseURL)
 
-			voiceID, err := resolveVoice(cmd.Context(), client, voiceInput, forceVoiceID)
+			category, err := normalizeVoiceCategory(opts.voiceCategory)
+			if err != nil {
+				return err
+			}
+
+			voiceID, err := resolveVoice(cmd.Context(), client, voiceInput, category, forceVoiceID)
 			if err != nil {
 				return err
 			}
@@ -145,6 +152,7 @@ func init() {
 
 	cmd.Flags().StringVar(&opts.voiceID, "voice-id", "", "Voice ID to use (MINIMAX_VOICE_ID)")
 	cmd.Flags().StringVarP(&opts.voiceID, "voice", "v", "", "Alias for --voice-id; accepts name or ID; use '?' to list voices")
+	cmd.Flags().StringVar(&opts.voiceCategory, "voice-category", opts.voiceCategory, "Voice category to query (system|voice_cloning|voice_generation|all)")
 	cmd.Flags().StringVar(&opts.modelID, "model-id", opts.modelID, "Model ID (default: speech-01). See MiniMax docs for available models.")
 	cmd.Flags().StringVarP(&opts.outputPath, "output", "o", "", "Write audio to file (disables playback unless --play is also set)")
 	cmd.Flags().StringVar(&opts.outputFmt, "format", opts.outputFmt, "Output format (e.g. mp3_44100_128)")
@@ -152,7 +160,7 @@ func init() {
 	cmd.Flags().BoolVar(&opts.play, "play", opts.play, "Play audio through speakers")
 	cmd.Flags().Float64Var(&opts.speed, "speed", opts.speed, "Speech speed multiplier (e.g. 1.1 faster, 0.9 slower)")
 	cmd.Flags().IntVarP(&opts.rateWPM, "rate", "r", 0, "macOS say-style words-per-minute; overrides --speed when set (default 175 wpm)")
-	cmd.Flags().StringVar(&opts.normalize, "normalize", "", "Text normalization: auto|on|off (numbers/units/URLs; when set)")
+	cmd.Flags().StringVar(&opts.normalize, "normalize", "", "Text normalization: auto|on|off (auto = server default; when set)")
 	cmd.Flags().StringVar(&opts.lang, "lang", "", "Language boost hint (e.g. en, zh, auto; when set)")
 	cmd.Flags().StringVar(&opts.emotion, "emotion", "", "Emotion hint (model dependent; e.g. neutral, happy, sad)")
 	cmd.Flags().IntVar(&opts.pitch, "pitch", 0, "Pitch adjustment (model dependent; when set)")
@@ -385,12 +393,12 @@ func convertAndPlay(ctx context.Context, client *minimax.Client, opts speakOptio
 	return n, nil
 }
 
-func resolveVoice(ctx context.Context, client *minimax.Client, voiceInput string, forceID bool) (string, error) {
+func resolveVoice(ctx context.Context, client *minimax.Client, voiceInput, category string, forceID bool) (string, error) {
 	voiceInput = strings.TrimSpace(voiceInput)
 	if voiceInput == "" {
 		ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 		defer cancel()
-		voices, err := client.ListVoices(ctx, "")
+		voices, err := client.ListVoices(ctx, category)
 		if err != nil {
 			return "", fmt.Errorf("voice not specified and failed to fetch voices: %w", err)
 		}
@@ -403,7 +411,7 @@ func resolveVoice(ctx context.Context, client *minimax.Client, voiceInput string
 	if voiceInput == "?" {
 		ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 		defer cancel()
-		voices, err := client.ListVoices(ctx, "")
+		voices, err := client.ListVoices(ctx, category)
 		if err != nil {
 			return "", err
 		}
@@ -428,7 +436,7 @@ func resolveVoice(ctx context.Context, client *minimax.Client, voiceInput string
 
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	voices, err := client.ListVoices(ctx, "")
+	voices, err := client.ListVoices(ctx, category)
 	if err != nil {
 		return "", err
 	}
@@ -546,5 +554,17 @@ func isSupportedFormat(format string) bool {
 		return true
 	default:
 		return false
+	}
+}
+
+func normalizeVoiceCategory(value string) (string, error) {
+	v := strings.ToLower(strings.TrimSpace(value))
+	switch v {
+	case "", "all":
+		return "all", nil
+	case "system", "voice_cloning", "voice_generation":
+		return v, nil
+	default:
+		return "", fmt.Errorf("invalid voice category %q (expected system|voice_cloning|voice_generation|all)", value)
 	}
 }

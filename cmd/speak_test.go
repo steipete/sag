@@ -145,7 +145,7 @@ func TestResolveVoiceDefaultsToFirst(t *testing.T) {
 	defer restoreHTTP()
 
 	client := minimax.NewClient("key", "http://minimax.test")
-	id, err := resolveVoice(context.Background(), client, "", false)
+	id, err := resolveVoice(context.Background(), client, "", "all", false)
 	if err != nil {
 		t.Fatalf("resolveVoice error: %v", err)
 	}
@@ -162,7 +162,7 @@ func TestResolveVoiceForceIDPassThrough(t *testing.T) {
 
 	client := minimax.NewClient("key", "http://minimax.test")
 	input := "custom-voice-id"
-	id, err := resolveVoice(context.Background(), client, input, true)
+	id, err := resolveVoice(context.Background(), client, input, "all", true)
 	if err != nil {
 		t.Fatalf("resolveVoice error: %v", err)
 	}
@@ -178,7 +178,7 @@ func TestResolveVoiceExactIDMatch(t *testing.T) {
 	defer restoreHTTP()
 
 	client := minimax.NewClient("key", "http://minimax.test")
-	id, err := resolveVoice(context.Background(), client, "voice-123", false)
+	id, err := resolveVoice(context.Background(), client, "voice-123", "all", false)
 	if err != nil {
 		t.Fatalf("resolveVoice error: %v", err)
 	}
@@ -194,7 +194,7 @@ func TestResolveVoiceNameMatch(t *testing.T) {
 	defer restoreHTTP()
 
 	client := minimax.NewClient("key", "http://minimax.test")
-	id, err := resolveVoice(context.Background(), client, "roger", false)
+	id, err := resolveVoice(context.Background(), client, "roger", "all", false)
 	if err != nil {
 		t.Fatalf("resolveVoice error: %v", err)
 	}
@@ -213,7 +213,7 @@ func TestResolveVoicePartialMatch(t *testing.T) {
 	defer restore()
 
 	client := minimax.NewClient("key", "http://minimax.test")
-	id, err := resolveVoice(context.Background(), client, "roger", false)
+	id, err := resolveVoice(context.Background(), client, "roger", "all", false)
 	if err != nil {
 		t.Fatalf("resolveVoice error: %v", err)
 	}
@@ -232,7 +232,7 @@ func TestResolveVoiceNoMatch(t *testing.T) {
 	defer restoreHTTP()
 
 	client := minimax.NewClient("key", "http://minimax.test")
-	_, err := resolveVoice(context.Background(), client, "nothing-match", false)
+	_, err := resolveVoice(context.Background(), client, "nothing-match", "all", false)
 	if err == nil {
 		t.Fatalf("expected error for non-matching voice")
 	}
@@ -251,7 +251,7 @@ func TestResolveVoiceListOutputsTable(t *testing.T) {
 	defer restore()
 
 	client := minimax.NewClient("key", "http://minimax.test")
-	id, err := resolveVoice(context.Background(), client, "?", false)
+	id, err := resolveVoice(context.Background(), client, "?", "all", false)
 	if err != nil {
 		t.Fatalf("resolveVoice error: %v", err)
 	}
