@@ -19,8 +19,8 @@ var (
 	versionFlag bool
 	rootCmd     = &cobra.Command{
 		Use:     "sag",
-		Short:   "🗣️ ElevenLabs speech, mac-style ease",
-		Long:    "Command-line ElevenLabs TTS with macOS playback. Call it like macOS 'say': if you skip the subcommand, text args are passed to 'speak' (e.g. `sag \"Hello\"`).\n\nTip: run `sag prompting` for model-specific prompting tips.\nModels: `eleven_v3` (default), `eleven_multilingual_v2` (stable), `eleven_flash_v2_5` (fast/cheap), `eleven_turbo_v2_5` (balanced).",
+		Short:   "🗣️ MiniMax speech, mac-style ease",
+		Long:    "Command-line MiniMax TTS with macOS playback. Call it like macOS 'say': if you skip the subcommand, text args are passed to 'speak' (e.g. `sag \"Hello\"`).\n\nTip: run `sag prompting` for model-specific prompting tips.\nModels: `speech-01` (default; adjust per MiniMax docs).",
 		Example: "  sag \"Hi Peter\"\n  echo 'piped input' | sag\n  sag speak -v Roger --rate 200 \"Faster speech\"\n  sag prompting",
 		Version: "0.2.2",
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
@@ -43,9 +43,9 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.PersistentFlags().StringVar(&cfg.APIKey, "api-key", "", "ElevenLabs API key (or ELEVENLABS_API_KEY)")
-	rootCmd.PersistentFlags().StringVar(&cfg.APIKeyFile, "api-key-file", "", "Read ElevenLabs API key from file (or ELEVENLABS_API_KEY_FILE)")
-	rootCmd.PersistentFlags().StringVar(&cfg.BaseURL, "base-url", "https://api.elevenlabs.io", "Override ElevenLabs API base URL")
+	rootCmd.PersistentFlags().StringVar(&cfg.APIKey, "api-key", "", "MiniMax API key (or MINIMAX_API_KEY)")
+	rootCmd.PersistentFlags().StringVar(&cfg.APIKeyFile, "api-key-file", "", "Read MiniMax API key from file (or MINIMAX_API_KEY_FILE)")
+	rootCmd.PersistentFlags().StringVar(&cfg.BaseURL, "base-url", "https://api.minimax.io", "Override MiniMax API base URL")
 	rootCmd.PersistentFlags().BoolVarP(&versionFlag, "version", "V", false, "Print version and exit")
 }
 

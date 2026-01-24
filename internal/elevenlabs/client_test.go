@@ -19,16 +19,15 @@ func TestNewClientDefaultsBase(t *testing.T) {
 }
 
 func TestListVoices(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/v1/voices" {
 			t.Fatalf("unexpected path: %s", r.URL.Path)
 		}
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"voices":[{"voice_id":"id1","name":"Sarah","category":"premade"},{"voice_id":"id2","name":"Roger","category":"premade"}]}`))
-	}))
-	defer srv.Close()
+	})
 
-	c := NewClient("key", srv.URL)
+	c := newClientWithHandler(handler)
 	voices, err := c.ListVoices(context.Background())
 	if err != nil {
 		t.Fatalf("ListVoices error: %v", err)
@@ -39,7 +38,7 @@ func TestListVoices(t *testing.T) {
 }
 
 func TestStreamTTS(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !strings.Contains(r.URL.Path, "/v1/text-to-speech/voice123/stream") {
 			t.Fatalf("unexpected path: %s", r.URL.Path)
 		}
@@ -47,10 +46,9 @@ func TestStreamTTS(t *testing.T) {
 			t.Fatalf("missing Accept header")
 		}
 		_, _ = w.Write([]byte("audio-data"))
-	}))
-	defer srv.Close()
+	})
 
-	c := NewClient("key", srv.URL)
+	c := newClientWithHandler(handler)
 	rc, err := c.StreamTTS(context.Background(), "voice123", TTSRequest{Text: "hi"}, 0)
 	if err != nil {
 		t.Fatalf("StreamTTS error: %v", err)
@@ -70,7 +68,7 @@ func TestStreamTTS_PayloadFields(t *testing.T) {
 	speed := 1.1
 	seed := uint32(0)
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var got map[string]any
 		if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
 			t.Fatalf("decode body: %v", err)
@@ -107,10 +105,9 @@ func TestStreamTTS_PayloadFields(t *testing.T) {
 		}
 
 		_, _ = w.Write([]byte("ok"))
-	}))
-	defer srv.Close()
+	})
 
-	c := NewClient("key", srv.URL)
+	c := newClientWithHandler(handler)
 	_, err := c.StreamTTS(context.Background(), "voice123", TTSRequest{
 		Text:                   "hi",
 		ModelID:                "eleven_multilingual_v2",
@@ -132,12 +129,11 @@ func TestStreamTTS_PayloadFields(t *testing.T) {
 }
 
 func TestStreamTTS_Error(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "nope", http.StatusBadRequest)
-	}))
-	defer srv.Close()
+	})
 
-	c := NewClient("key", srv.URL)
+	c := newClientWithHandler(handler)
 	_, err := c.StreamTTS(context.Background(), "voice123", TTSRequest{Text: "hi"}, 0)
 	if err == nil || !strings.Contains(err.Error(), "400") {
 		t.Fatalf("expected 400 error, got %v", err)
@@ -145,15 +141,14 @@ func TestStreamTTS_Error(t *testing.T) {
 }
 
 func TestConvertTTS(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if path.Base(r.URL.Path) != "voice123" {
 			t.Fatalf("unexpected path: %s", r.URL.Path)
 		}
 		_, _ = w.Write([]byte("full-audio"))
-	}))
-	defer srv.Close()
+	})
 
-	c := NewClient("key", srv.URL)
+	c := newClientWithHandler(handler)
 	data, err := c.ConvertTTS(context.Background(), "voice123", TTSRequest{Text: "hello"})
 	if err != nil {
 		t.Fatalf("ConvertTTS error: %v", err)
@@ -164,14 +159,31 @@ func TestConvertTTS(t *testing.T) {
 }
 
 func TestConvertTTS_Error(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "fail", http.StatusInternalServerError)
-	}))
-	defer srv.Close()
+	})
 
-	c := NewClient("key", srv.URL)
+	c := newClientWithHandler(handler)
 	_, err := c.ConvertTTS(context.Background(), "voice123", TTSRequest{Text: "hello"})
 	if err == nil || !strings.Contains(err.Error(), "500") {
 		t.Fatalf("expected 500 error, got %v", err)
 	}
+}
+
+type handlerRoundTripper struct {
+	handler http.Handler
+}
+
+func (rt handlerRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	rr := httptest.NewRecorder()
+	rt.handler.ServeHTTP(rr, req)
+	res := rr.Result()
+	res.Request = req
+	return res, nil
+}
+
+func newClientWithHandler(handler http.Handler) *Client {
+	c := NewClient("key", "http://eleven.test")
+	c.httpClient = &http.Client{Transport: handlerRoundTripper{handler: handler}}
+	return c
 }

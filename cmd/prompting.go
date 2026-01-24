@@ -15,7 +15,7 @@ func init() {
 	cmd := &cobra.Command{
 		Use:     "prompting",
 		Aliases: []string{"prompt", "guide", "tips"},
-		Short:   "Prompting guide for better ElevenLabs speech",
+		Short:   "Prompting guide for better MiniMax speech",
 		Long:    "Prints a practical prompting guide (model-specific tips, tags, and knobs) to improve voice quality and control.",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			out := strings.TrimSpace(promptingGuide)

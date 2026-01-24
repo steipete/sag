@@ -4,24 +4,23 @@ import (
 	"bytes"
 	"io"
 	"net/http"
-	"net/http/httptest"
 	"os"
 	"testing"
 
-	"github.com/steipete/sag/internal/elevenlabs"
+	"github.com/steipete/sag/internal/minimax"
 )
 
 func TestVoicesCommand(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/v1/voices" {
+	restoreHTTP := withMinimaxHandler(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/get_voice" {
 			t.Fatalf("unexpected path: %s", r.URL.Path)
 		}
-		_, _ = w.Write([]byte(`{"voices":[{"voice_id":"id1","name":"Alpha","category":"premade"}]}`))
+		_, _ = w.Write([]byte(`{"system_voice":[{"voice_id":"id1","voice_name":"Alpha"}],"voice_cloning":[],"voice_generation":[],"base_resp":{"status_code":0,"status_msg":"success"}}`))
 	}))
-	defer srv.Close()
+	defer restoreHTTP()
 
 	cfg.APIKey = "key"
-	cfg.BaseURL = srv.URL
+	cfg.BaseURL = "http://minimax.test"
 
 	restore, readOut := captureStdoutVoices(t)
 	defer restore()
@@ -42,14 +41,14 @@ func TestVoicesCommand(t *testing.T) {
 
 	// reset args to avoid polluting other tests
 	rootCmd.SetArgs(nil)
-	_ = os.Unsetenv("ELEVENLABS_API_KEY")
+	_ = os.Unsetenv("MINIMAX_API_KEY")
 }
 
 func TestFilterVoicesByName(t *testing.T) {
-	voices := []elevenlabs.Voice{
-		{VoiceID: "id1", Name: "Sarah"},
-		{VoiceID: "id2", Name: "Roger - Casual"},
-		{VoiceID: "id3", Name: "ROGUE"},
+	voices := []minimax.Voice{
+		{VoiceID: "id1", VoiceName: "Sarah"},
+		{VoiceID: "id2", VoiceName: "Roger - Casual"},
+		{VoiceID: "id3", VoiceName: "ROGUE"},
 	}
 
 	filtered := filterVoicesByName(voices, "rog")

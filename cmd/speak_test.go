@@ -2,15 +2,17 @@ package cmd
 
 import (
 	"context"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
 	"io"
 	"math"
 	"net/http"
-	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
 
-	"github.com/steipete/sag/internal/elevenlabs"
+	"github.com/steipete/sag/internal/minimax"
 )
 
 func TestInferFormatFromExt(t *testing.T) {
@@ -20,8 +22,9 @@ func TestInferFormatFromExt(t *testing.T) {
 	}{
 		{"out.mp3", "mp3_44100_128"},
 		{"out.MP3", "mp3_44100_128"},
-		{"audio.wav", "pcm_44100"},
-		{"audio.WAVE", "pcm_44100"},
+		{"audio.wav", "wav"},
+		{"audio.WAVE", "wav"},
+		{"audio.flac", "flac"},
 		{"audio.unknown", ""},
 	}
 	for _, tt := range tests {
@@ -136,14 +139,12 @@ func TestApplyRateAndSpeedInvalidSpeed(t *testing.T) {
 }
 
 func TestResolveVoiceDefaultsToFirst(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		if _, err := w.Write([]byte(`{"voices":[{"voice_id":"id1","name":"Alpha","category":"premade"},{"voice_id":"id2","name":"Beta","category":"premade"}]}`)); err != nil {
-			t.Fatalf("write response: %v", err)
-		}
+	restoreHTTP := withMinimaxHandler(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		writeVoiceList(w, []minimax.Voice{{VoiceID: "id1", VoiceName: "Alpha"}, {VoiceID: "id2", VoiceName: "Beta"}})
 	}))
-	defer srv.Close()
+	defer restoreHTTP()
 
-	client := elevenlabs.NewClient("key", srv.URL)
+	client := minimax.NewClient("key", "http://minimax.test")
 	id, err := resolveVoice(context.Background(), client, "", false)
 	if err != nil {
 		t.Fatalf("resolveVoice error: %v", err)
@@ -153,32 +154,14 @@ func TestResolveVoiceDefaultsToFirst(t *testing.T) {
 	}
 }
 
-func TestResolveVoicePassThroughIDWithDigits(t *testing.T) {
-	// Should short-circuit without hitting the server when input looks like an ID with digits.
-	srv := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
-		t.Fatalf("server should not be called for ID pass-through")
-	}))
-	defer srv.Close()
-
-	client := elevenlabs.NewClient("key", srv.URL)
-	id, err := resolveVoice(context.Background(), client, "abc1234567890123", false)
-	if err != nil {
-		t.Fatalf("resolveVoice error: %v", err)
-	}
-	if id != "abc1234567890123" {
-		t.Fatalf("expected ID to pass through, got %q", id)
-	}
-}
-
 func TestResolveVoiceForceIDPassThrough(t *testing.T) {
-	// Should short-circuit without hitting the server when --voice-id is set.
-	srv := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
+	restoreHTTP := withMinimaxHandler(t, http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
 		t.Fatalf("server should not be called for forced ID pass-through")
 	}))
-	defer srv.Close()
+	defer restoreHTTP()
 
-	client := elevenlabs.NewClient("key", srv.URL)
-	input := "OnlyLettersVoiceID"
+	client := minimax.NewClient("key", "http://minimax.test")
+	input := "custom-voice-id"
 	id, err := resolveVoice(context.Background(), client, input, true)
 	if err != nil {
 		t.Fatalf("resolveVoice error: %v", err)
@@ -188,83 +171,48 @@ func TestResolveVoiceForceIDPassThrough(t *testing.T) {
 	}
 }
 
-func TestResolveVoiceLongNameExactMatch(t *testing.T) {
-	var called bool
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		called = true
-		if _, err := w.Write([]byte(`{"voices":[{"voice_id":"id-long","name":"LongVoiceNameAlpha","category":"premade"}]}`)); err != nil {
-			t.Fatalf("write response: %v", err)
-		}
+func TestResolveVoiceExactIDMatch(t *testing.T) {
+	restoreHTTP := withMinimaxHandler(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		writeVoiceList(w, []minimax.Voice{{VoiceID: "voice-123", VoiceName: "Alpha"}})
 	}))
-	defer srv.Close()
+	defer restoreHTTP()
 
-	client := elevenlabs.NewClient("key", srv.URL)
-	id, err := resolveVoice(context.Background(), client, "LongVoiceNameAlpha", false)
+	client := minimax.NewClient("key", "http://minimax.test")
+	id, err := resolveVoice(context.Background(), client, "voice-123", false)
 	if err != nil {
 		t.Fatalf("resolveVoice error: %v", err)
 	}
-	if !called {
-		t.Fatalf("expected voice lookup for long name")
-	}
-	if id != "id-long" {
-		t.Fatalf("expected id-long, got %q", id)
+	if id != "voice-123" {
+		t.Fatalf("expected voice-123, got %q", id)
 	}
 }
 
-func TestResolveVoiceLooksLikeIDNoMatchPassesThrough(t *testing.T) {
-	var called bool
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		called = true
-		if _, err := w.Write([]byte(`{"voices":[{"voice_id":"id1","name":"Other","category":"premade"}]}`)); err != nil {
-			t.Fatalf("write response: %v", err)
-		}
+func TestResolveVoiceNameMatch(t *testing.T) {
+	restoreHTTP := withMinimaxHandler(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		writeVoiceList(w, []minimax.Voice{{VoiceID: "id-sarah", VoiceName: "Sarah"}, {VoiceID: "id-roger", VoiceName: "Roger"}})
 	}))
-	defer srv.Close()
+	defer restoreHTTP()
 
-	client := elevenlabs.NewClient("key", srv.URL)
-	input := "LongVoiceNameAlpha"
-	id, err := resolveVoice(context.Background(), client, input, false)
+	client := minimax.NewClient("key", "http://minimax.test")
+	id, err := resolveVoice(context.Background(), client, "roger", false)
 	if err != nil {
 		t.Fatalf("resolveVoice error: %v", err)
 	}
-	if !called {
-		t.Fatalf("expected voice lookup for ambiguous input")
-	}
-	if id != input {
-		t.Fatalf("expected %q to pass through, got %q", input, id)
-	}
-}
-
-func TestResolveVoiceNoMatch(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		if _, err := w.Write([]byte(`{"voices":[{"voice_id":"id1","name":"Near","category":"premade"}]}`)); err != nil {
-			t.Fatalf("write response: %v", err)
-		}
-	}))
-	defer srv.Close()
-
-	client := elevenlabs.NewClient("key", srv.URL)
-	_, err := resolveVoice(context.Background(), client, "nothing-match", false)
-	if err == nil {
-		t.Fatalf("expected error for non-matching voice")
-	}
-	if !strings.Contains(err.Error(), "not found") {
-		t.Fatalf("expected 'not found' error, got %q", err.Error())
+	if id != "id-roger" {
+		t.Fatalf("resolveVoice by name = %q, want id-roger", id)
 	}
 }
 
 func TestResolveVoicePartialMatch(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		if _, err := w.Write([]byte(`{"voices":[{"voice_id":"id1","name":"Sarah","category":"premade"},{"voice_id":"id2","name":"Roger - Casual","category":"premade"}]}`)); err != nil {
-			t.Fatalf("write response: %v", err)
-		}
+	restoreHTTP := withMinimaxHandler(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		writeVoiceList(w, []minimax.Voice{{VoiceID: "id1", VoiceName: "Sarah"}, {VoiceID: "id2", VoiceName: "Roger - Casual"}})
 	}))
-	defer srv.Close()
+	defer restoreHTTP()
 
 	restore, read := captureStderr(t)
 	defer restore()
 
-	client := elevenlabs.NewClient("key", srv.URL)
+	client := minimax.NewClient("key", "http://minimax.test")
 	id, err := resolveVoice(context.Background(), client, "roger", false)
 	if err != nil {
 		t.Fatalf("resolveVoice error: %v", err)
@@ -277,18 +225,32 @@ func TestResolveVoicePartialMatch(t *testing.T) {
 	}
 }
 
-func TestResolveVoiceListOutputsTable(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		if _, err := w.Write([]byte(`{"voices":[{"voice_id":"id1","name":"Alpha","category":"premade"}]}`)); err != nil {
-			t.Fatalf("write response: %v", err)
-		}
+func TestResolveVoiceNoMatch(t *testing.T) {
+	restoreHTTP := withMinimaxHandler(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		writeVoiceList(w, []minimax.Voice{{VoiceID: "id1", VoiceName: "Near"}})
 	}))
-	defer srv.Close()
+	defer restoreHTTP()
+
+	client := minimax.NewClient("key", "http://minimax.test")
+	_, err := resolveVoice(context.Background(), client, "nothing-match", false)
+	if err == nil {
+		t.Fatalf("expected error for non-matching voice")
+	}
+	if !strings.Contains(err.Error(), "not found") {
+		t.Fatalf("expected 'not found' error, got %q", err.Error())
+	}
+}
+
+func TestResolveVoiceListOutputsTable(t *testing.T) {
+	restoreHTTP := withMinimaxHandler(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		writeVoiceList(w, []minimax.Voice{{VoiceID: "id1", VoiceName: "Alpha"}})
+	}))
+	defer restoreHTTP()
 
 	restore, read := captureStdout(t)
 	defer restore()
 
-	client := elevenlabs.NewClient("key", srv.URL)
+	client := minimax.NewClient("key", "http://minimax.test")
 	id, err := resolveVoice(context.Background(), client, "?", false)
 	if err != nil {
 		t.Fatalf("resolveVoice error: %v", err)
@@ -302,19 +264,19 @@ func TestResolveVoiceListOutputsTable(t *testing.T) {
 }
 
 func TestStreamAndPlayWritesOutput(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !strings.Contains(r.URL.Path, "/stream") {
+	restoreHTTP := withMinimaxHandler(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/t2a_v2" {
 			t.Fatalf("unexpected path: %s", r.URL.Path)
 		}
-		_, _ = w.Write([]byte("stream-bytes"))
+		writeStreamResponse(w, "stream-bytes")
 	}))
-	defer srv.Close()
+	defer restoreHTTP()
 
-	client := elevenlabs.NewClient("key", srv.URL)
+	client := minimax.NewClient("key", "http://minimax.test")
 	tmp := t.TempDir()
 	out := tmp + "/out.mp3"
 	opts := speakOptions{voiceID: "v1", outputPath: out, stream: true, play: false}
-	payload := elevenlabs.TTSRequest{Text: "hi"}
+	payload := minimax.TTSRequest{Text: "hi", Stream: true, VoiceSetting: &minimax.VoiceSetting{VoiceID: "v1"}}
 
 	if _, err := streamAndPlay(context.Background(), client, opts, payload); err != nil {
 		t.Fatalf("streamAndPlay error: %v", err)
@@ -329,19 +291,19 @@ func TestStreamAndPlayWritesOutput(t *testing.T) {
 }
 
 func TestConvertAndPlayWritesOutput(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !strings.Contains(r.URL.Path, "/text-to-speech/") {
+	restoreHTTP := withMinimaxHandler(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/t2a_v2" {
 			t.Fatalf("unexpected path: %s", r.URL.Path)
 		}
-		_, _ = w.Write([]byte("convert-bytes"))
+		writeJSONResponse(w, "convert-bytes")
 	}))
-	defer srv.Close()
+	defer restoreHTTP()
 
-	client := elevenlabs.NewClient("key", srv.URL)
+	client := minimax.NewClient("key", "http://minimax.test")
 	tmp := t.TempDir()
 	out := tmp + "/out.mp3"
 	opts := speakOptions{voiceID: "v1", outputPath: out, play: false}
-	payload := elevenlabs.TTSRequest{Text: "hi"}
+	payload := minimax.TTSRequest{Text: "hi", VoiceSetting: &minimax.VoiceSetting{VoiceID: "v1"}}
 
 	if _, err := convertAndPlay(context.Background(), client, opts, payload); err != nil {
 		t.Fatalf("convertAndPlay error: %v", err)
@@ -356,9 +318,14 @@ func TestConvertAndPlayWritesOutput(t *testing.T) {
 }
 
 func TestStreamAndPlayRequiresWork(t *testing.T) {
-	client := elevenlabs.NewClient("key", "http://invalid")
+	restoreHTTP := withMinimaxHandler(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		writeStreamResponse(w, "")
+	}))
+	defer restoreHTTP()
+
+	client := minimax.NewClient("key", "http://invalid")
 	opts := speakOptions{voiceID: "v1", play: false, stream: true}
-	payload := elevenlabs.TTSRequest{Text: "hi"}
+	payload := minimax.TTSRequest{Text: "hi", Stream: true, VoiceSetting: &minimax.VoiceSetting{VoiceID: "v1"}}
 
 	_, err := streamAndPlay(context.Background(), client, opts, payload)
 	if err == nil {
@@ -376,14 +343,14 @@ func TestStreamAndPlayWithPlayback(t *testing.T) {
 	})
 	defer restore()
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte("stream-play"))
+	restoreHTTP := withMinimaxHandler(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		writeStreamResponse(w, "stream-play")
 	}))
-	defer srv.Close()
+	defer restoreHTTP()
 
-	client := elevenlabs.NewClient("key", srv.URL)
+	client := minimax.NewClient("key", "http://minimax.test")
 	opts := speakOptions{voiceID: "v1", play: true, stream: true}
-	payload := elevenlabs.TTSRequest{Text: "hi"}
+	payload := minimax.TTSRequest{Text: "hi", Stream: true, VoiceSetting: &minimax.VoiceSetting{VoiceID: "v1"}}
 
 	if _, err := streamAndPlay(context.Background(), client, opts, payload); err != nil {
 		t.Fatalf("streamAndPlay error: %v", err)
@@ -403,14 +370,14 @@ func TestConvertAndPlayWithPlayback(t *testing.T) {
 	})
 	defer restore()
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte("convert-play"))
+	restoreHTTP := withMinimaxHandler(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		writeJSONResponse(w, "convert-play")
 	}))
-	defer srv.Close()
+	defer restoreHTTP()
 
-	client := elevenlabs.NewClient("key", srv.URL)
+	client := minimax.NewClient("key", "http://minimax.test")
 	opts := speakOptions{voiceID: "v1", play: true, outputPath: "", stream: false}
-	payload := elevenlabs.TTSRequest{Text: "hi"}
+	payload := minimax.TTSRequest{Text: "hi", VoiceSetting: &minimax.VoiceSetting{VoiceID: "v1"}}
 
 	if _, err := convertAndPlay(context.Background(), client, opts, payload); err != nil {
 		t.Fatalf("convertAndPlay error: %v", err)
@@ -456,24 +423,6 @@ func captureStderr(t *testing.T) (restore func(), read func() string) {
 		}
 }
 
-func TestResolveVoiceByName(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if _, err := w.Write([]byte(`{"voices":[{"voice_id":"id-sarah","name":"Sarah","category":"premade"},{"voice_id":"id-roger","name":"Roger","category":"premade"}]}`)); err != nil {
-			t.Fatalf("write response: %v", err)
-		}
-	}))
-	defer srv.Close()
-
-	client := elevenlabs.NewClient("key", srv.URL)
-	id, err := resolveVoice(context.Background(), client, "roger", false)
-	if err != nil {
-		t.Fatalf("resolveVoice error: %v", err)
-	}
-	if id != "id-roger" {
-		t.Fatalf("resolveVoice by name = %q, want id-roger", id)
-	}
-}
-
 func stubPlay(t *testing.T, fn func([]byte)) func() {
 	t.Helper()
 	orig := playToSpeakers
@@ -483,4 +432,41 @@ func stubPlay(t *testing.T, fn func([]byte)) func() {
 		return nil
 	}
 	return func() { playToSpeakers = orig }
+}
+
+func withMinimaxHandler(t *testing.T, handler http.Handler) func() {
+	t.Helper()
+	minimax.SetHTTPClient(&http.Client{Transport: handlerRoundTripper{handler: handler}})
+	return func() { minimax.SetHTTPClient(nil) }
+}
+
+func writeVoiceList(w http.ResponseWriter, system []minimax.Voice) {
+	resp := struct {
+		SystemVoice     []minimax.Voice   `json:"system_voice"`
+		VoiceCloning    []minimax.Voice   `json:"voice_cloning"`
+		VoiceGeneration []minimax.Voice   `json:"voice_generation"`
+		BaseResp        *minimax.BaseResp `json:"base_resp"`
+	}{
+		SystemVoice: system,
+		BaseResp:    &minimax.BaseResp{StatusCode: 0, StatusMsg: "success"},
+	}
+	_ = json.NewEncoder(w).Encode(resp)
+}
+
+func writeStreamResponse(w http.ResponseWriter, payload string) {
+	w.Header().Set("Content-Type", "text/event-stream")
+	item := minimax.TTSResponse{
+		Data:     &minimax.TTSResponseData{Audio: hex.EncodeToString([]byte(payload)), Status: 1},
+		BaseResp: &minimax.BaseResp{StatusCode: 0, StatusMsg: "success"},
+	}
+	b, _ := json.Marshal(item)
+	_, _ = fmt.Fprintf(w, "data: %s\n\n", string(b))
+}
+
+func writeJSONResponse(w http.ResponseWriter, payload string) {
+	item := minimax.TTSResponse{
+		Data:     &minimax.TTSResponseData{Audio: hex.EncodeToString([]byte(payload)), Status: 2},
+		BaseResp: &minimax.BaseResp{StatusCode: 0, StatusMsg: "success"},
+	}
+	_ = json.NewEncoder(w).Encode(item)
 }

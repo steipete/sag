@@ -1,4 +1,4 @@
-# sag 🗣️ — “Mac-style speech with ElevenLabs”
+# sag 🗣️ — “Mac-style speech with MiniMax”
 
 One-liner TTS that works like `say`: stream to speakers by default, list voices, or save audio files.
 
@@ -15,9 +15,10 @@ go install ./cmd/sag
 Requires Go 1.24+.
 
 ## Configuration
-- `ELEVENLABS_API_KEY` (required)
-- `--api-key-file` or `ELEVENLABS_API_KEY_FILE`/`SAG_API_KEY_FILE` to load the key from a file
-- Optional defaults: `ELEVENLABS_VOICE_ID` or `SAG_VOICE_ID`
+- `MINIMAX_API_KEY` (required; fallback `SAG_API_KEY`)
+- `--api-key-file` or `MINIMAX_API_KEY_FILE`/`SAG_API_KEY_FILE` to load the key from a file
+- Optional defaults: `MINIMAX_VOICE_ID` or `SAG_VOICE_ID`
+- `--base-url` to override the API host (default `https://api.minimax.io`; some regions use `https://api-uw.minimax.io`)
 
 ## Usage
 
@@ -25,12 +26,12 @@ Features:
 - macOS `say`-style default: `sag "Hello"` routes to `speak` automatically.
 - Streaming playback to speakers with optional file output.
 - Voice discovery via `sag voices` and `-v ?`.
-- Speed/rate controls, latency tiers, and format inference from output extension.
-- Model selection via `--model-id` (defaults to `eleven_v3`; use `eleven_multilingual_v2` for a stable baseline).
+- Speed/rate controls and format inference from output extension.
+- Model selection via `--model-id` (defaults to `speech-01`).
 
 Speak (streams audio):
 ```bash
-sag speak -v Roger "Hello world"
+sag speak -v "Your Voice" "Hello world"
 ```
 
 Call it like macOS `say`: omitting the subcommand pipes text to `speak` by default.
@@ -40,36 +41,33 @@ sag "Hello world"
 
 macOS `say` compatibility shortcuts (subcommand optional):
 ```bash
-sag -v Roger -r 200 "Faster speech"
+sag -v "Your Voice" -r 200 "Faster speech"
 sag -o out.mp3 "Save to file"
 sag -v ?      # list voices
 ```
 
 More examples:
 ```bash
-echo "piped input" | sag speak -v Roger
-sag speak -v Roger --stream --latency-tier 3 "Faster start"
-sag speak -v Roger --speed 1.2 "Talk a bit faster"
-sag speak -v Roger --model-id eleven_multilingual_v2 "Use stable v2 baseline"
-sag speak -v Roger --output out.wav --format pcm_44100 "Wave output"
+echo "piped input" | sag speak -v "Your Voice"
+sag speak -v "Your Voice" --speed 1.2 "Talk a bit faster"
+sag speak -v "Your Voice" --emotion happy "Great news, everyone!"
+sag speak -v "Your Voice" --output out.wav --format wav "Wave output"
 ```
 
 Key flags (subset):
 - `-v, --voice` voice name or ID (`?` to list)
 - `--api-key-file` read API key from a file
-- `-r, --rate` words per minute (maps to ElevenLabs speed; default 175)
+- `-r, --rate` words per minute (maps to speed; default 175)
 - `-f, --input-file` read text from file (`-` for stdin)
-- `-o, --output` write audio file; format inferred by extension (`.wav` -> PCM, `.mp3` -> MP3)
+- `-o, --output` write audio file; format inferred by extension (`.wav` -> WAV, `.mp3` -> MP3)
 - `--speed` explicit speed multiplier (0.5–2.0)
-- `--stability` v3: `0|0.5|1` (Creative/Natural/Robust); v2/v2.5: 0..1 (higher = more consistent, less expressive)
-- `--similarity` / `--similarity-boost` 0..1 (higher = closer to the reference voice)
-- `--style` 0..1 (higher = more stylized delivery; model/voice dependent)
-- `--speaker-boost` / `--no-speaker-boost` toggle clarity boost (model dependent)
-- `--seed` 0..4294967295 best-effort repeatability across runs
-- `--normalize` `auto|on|off` numbers/units/URLs normalization (when set)
-- `--lang` `en|de|fr|...` 2-letter ISO 639-1 language code (when set)
+- `--emotion` (model dependent)
+- `--pitch` (model dependent)
+- `--volume` (model dependent)
+- `--normalize` `auto|on|off` (text normalization; when set)
+- `--lang` language boost hint (e.g. `en`, `zh`, `auto`)
+- `--format` output format (e.g. `mp3_44100_128`, `mp3`, `wav`)
 - `--stream/--no-stream` stream while generating (default on)
-- `--latency-tier` 0–4 lower latency tiers
 - `--play/--no-play` control speaker playback
 - `--metrics` print basic stats to stderr
 
@@ -85,26 +83,17 @@ sag prompting
 ```
 
 Highlights:
-- v2/v2.5: SSML pauses via `<break time="1.5s" />` (v3 does not support SSML breaks).
-- v3: use audio tags like `[whispers]` and pause tags like `[short pause]`.
-- Use the voice knobs: `--stability`, `--similarity`, `--style`, `--speaker-boost`, plus request controls `--seed`, `--normalize`, `--lang`.
+- Keep scripts short and readable; punctuation drives timing.
+- Use `--emotion`, `--pitch`, and `--volume` for tone shaping (model dependent).
+- `--normalize` and `--lang` help with numbers/units and multilingual output.
 
 ## Models / engines
 
-`sag` supports any ElevenLabs `model_id` via `--model-id` (we pass it through). Practical defaults + common IDs:
-
-| Engine | `--model-id` | Prompting style | Best for |
-|---|---|---|---|
-| v3 (alpha) | `eleven_v3` (default) | Audio tags like `[whispers]`, `[short pause]` (no SSML `<break>`) | Most expressive / “acting” |
-| v2 (stable) | `eleven_multilingual_v2` | SSML `<break>` supported | Reliable baseline, simple prompts |
-| v2.5 Flash | `eleven_flash_v2_5` | SSML `<break>` supported | Ultra-low latency (~75ms) + 50% lower price per character |
-| v2.5 Turbo | `eleven_turbo_v2_5` | SSML `<break>` supported | Low latency (~250–300ms) + 50% lower price per character |
+`sag` supports any MiniMax model ID via `--model-id` (we pass it through). Default is `speech-01`.
 
 Notes:
-- SSML `<break>` works on v2/v2.5, not v3. Use pause tags on v3 instead.
-- Input limits differ by engine (v3: 5,000 chars; v2: 10,000 chars; v2.5 Turbo/Flash: 40,000 chars). If you hit limits, chunk text and stitch audio.
-- `--normalize on` may not be available for v2.5 Turbo/Flash (higher latency); prefer `auto`/`off` if it errors.
-- Source of truth: ElevenLabs “Models” docs.
+- Model availability varies by account/region; see MiniMax docs for the current list.
+- If you hit length limits, chunk text and stitch audio.
 
 ## Development
 - With pnpm:
@@ -120,6 +109,7 @@ Notes:
   - Build: `go build ./cmd/sag`
 
 ## Limitations
-- ElevenLabs account and API key required.
+- MiniMax account and API key required.
 - Voice defaults to first available if not provided.
 - Non-mac platforms: playback still works via `go-mp3` + `oto`, but device selection flags are no-ops.
+- Playback only supports MP3 output; use `--no-play` for WAV/FLAC/PCM.

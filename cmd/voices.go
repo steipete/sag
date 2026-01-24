@@ -8,7 +8,7 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/steipete/sag/internal/elevenlabs"
+	"github.com/steipete/sag/internal/minimax"
 
 	"github.com/spf13/cobra"
 )
@@ -25,16 +25,16 @@ func init() {
 
 	cmd := &cobra.Command{
 		Use:   "voices",
-		Short: "List available ElevenLabs voices",
+		Short: "List available MiniMax voices",
 		PreRunE: func(_ *cobra.Command, _ []string) error {
 			return ensureAPIKey()
 		},
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			client := elevenlabs.NewClient(cfg.APIKey, cfg.BaseURL)
+			client := minimax.NewClient(cfg.APIKey, cfg.BaseURL)
 			ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)
 			defer cancel()
 
-			voices, err := client.ListVoices(ctx)
+			voices, err := client.ListVoices(ctx, "")
 			if err != nil {
 				return err
 			}
@@ -51,7 +51,7 @@ func init() {
 				return err
 			}
 			for _, v := range voices {
-				if _, err := fmt.Fprintf(w, "%s\t%s\t%s\n", v.VoiceID, v.Name, v.Category); err != nil {
+				if _, err := fmt.Fprintf(w, "%s\t%s\t%s\n", v.VoiceID, voiceLabel(v), v.Category); err != nil {
 					return err
 				}
 			}
@@ -59,16 +59,16 @@ func init() {
 		},
 	}
 
-	cmd.Flags().StringVar(&opts.search, "search", "", "Filter voices by name (client-side)")
+	cmd.Flags().StringVar(&opts.search, "search", "", "Filter voices by name or ID (client-side)")
 	cmd.Flags().IntVar(&opts.limit, "limit", opts.limit, "Maximum rows to display (0 = all)")
 	rootCmd.AddCommand(cmd)
 }
 
-func filterVoicesByName(voices []elevenlabs.Voice, search string) []elevenlabs.Voice {
+func filterVoicesByName(voices []minimax.Voice, search string) []minimax.Voice {
 	searchLower := strings.ToLower(search)
-	filtered := make([]elevenlabs.Voice, 0, len(voices))
+	filtered := make([]minimax.Voice, 0, len(voices))
 	for _, v := range voices {
-		if strings.Contains(strings.ToLower(v.Name), searchLower) {
+		if strings.Contains(strings.ToLower(voiceLabel(v)), searchLower) || strings.Contains(strings.ToLower(v.VoiceID), searchLower) {
 			filtered = append(filtered, v)
 		}
 	}

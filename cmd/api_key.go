@@ -15,13 +15,13 @@ func ensureAPIKey() error {
 		cfg.APIKey = key
 	}
 	if cfg.APIKey == "" {
-		cfg.APIKey = os.Getenv("ELEVENLABS_API_KEY")
+		cfg.APIKey = os.Getenv("MINIMAX_API_KEY")
 	}
 	if cfg.APIKey == "" {
 		cfg.APIKey = os.Getenv("SAG_API_KEY")
 	}
 	if cfg.APIKey == "" {
-		return fmt.Errorf("missing ElevenLabs API key (set --api-key, --api-key-file, or ELEVENLABS_API_KEY)")
+		return fmt.Errorf("missing MiniMax API key (set --api-key, --api-key-file, MINIMAX_API_KEY, or SAG_API_KEY)")
 	}
 	return nil
 }
@@ -29,7 +29,7 @@ func ensureAPIKey() error {
 func resolveAPIKeyFromFile() (string, error) {
 	path := cfg.APIKeyFile
 	if path == "" {
-		path = os.Getenv("ELEVENLABS_API_KEY_FILE")
+		path = os.Getenv("MINIMAX_API_KEY_FILE")
 	}
 	if path == "" {
 		path = os.Getenv("SAG_API_KEY_FILE")

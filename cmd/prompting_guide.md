@@ -3,81 +3,45 @@
 Goal: “more natural” output + controllable delivery.
 
 ## Choose model (matters)
-
-### v3 (alpha) (default in `sag`)
-- Model ID: `eleven_v3`
-- Uses inline audio tags: lowercase `[square brackets]` inside your text.
-- SSML `<break>` is *not* supported; use v3 pause tags instead: `[pause]`, `[short pause]`, `[long pause]`.
-- Short prompts can be unstable; longer scripts tend to behave better (aim 250+ chars).
-
-### v2 / v2.5 (stable baseline)
-- Model ID: `eleven_multilingual_v2`
-- Best baseline for “just speak this”.
-- Supports SSML `<break time="1.5s" />` for precise pauses (up to ~3s).
-- Some English-only models support SSML `<phoneme>` for pronunciation (not yet exposed in `sag`).
-
-### v2.5 speed/cost options
-- Flash: `eleven_flash_v2_5` (ultra-low latency; up to 40,000 chars per request; 50% lower price per character)
-- Turbo: `eleven_turbo_v2_5` (low latency; up to 40,000 chars per request; 50% lower price per character)
-- Prompting looks like v2 (plain text + SSML `<break>`). If numbers/units sound off, try `--normalize auto` and/or respell.
-- If `--normalize on` errors on v2.5, use `auto` or `off`.
+- Default model: `speech-01`.
+- MiniMax model IDs vary by account/region; check the MiniMax docs for the full list.
+- If you have multiple tiers, pick higher-quality models for narration and lower-latency models for realtime.
 
 ## Universal “make it sound good” rules
 - Write like a script: short sentences; newlines for beats.
-- Punctuation is control: commas + em-dashes slow; ellipses add weight; `!` adds energy.
-- Put emphasis in words, not instructions: “quietly” usually beats “whisper please”.
-- If you need exact pronunciation: respell (e.g. “key-note”); otherwise enable normalization.
+- Punctuation is control: commas slow; em-dashes add breath; ellipses add weight; `!` adds energy.
+- Use words for intent: “quietly” often works better than meta-instructions.
+- If pronunciation is off: respell, add hyphens, or split syllables.
 
-## v3 audio tags (examples)
+## Knobs in `sag`
 
-Voice-related:
-- `[whispers]`, `[shouts]`
-- `[laughs]`, `[starts laughing]`, `[wheezing]`
-- `[sighs]`, `[exhales]`, `[clears throat]`
-- `[sarcastic]`, `[curious]`, `[excited]`, `[crying]`, `[mischievously]`
-
-Sound effects:
-- `[applause]`, `[clapping]`, `[gunshot]`, `[explosion]`
-- `[swallows]`, `[gulps]`
-
-Experimental:
-- `[strong X accent]` (replace X, e.g. “French”)
-- `[sings]`
-
-Notes:
-- Tag effectiveness depends on the voice + training samples; not every voice reacts well.
-- Combine tags sparingly; more tags ≠ better audio.
-
-## Knobs in `sag` (0.2.1)
-
-Voice sliders:
-- `--stability` (v3 presets: 0.0=Creative, 0.5=Natural, 1.0=Robust; v2/v2.5: 0..1)
-- `--similarity 0..1` (higher = closer to reference voice, less flexible)
-- `--style 0..1` (higher = more “styled” delivery; voice/model dependent)
-- `--speaker-boost` (can add clarity; model dependent)
+Voice controls (model dependent):
+- `--speed` or `--rate` to control delivery pace.
+- `--emotion` to hint the tone (e.g. `neutral`, `happy`, `sad`).
+- `--pitch` and `--volume` for finer adjustments.
 
 Request controls:
-- `--seed 0..4294967295` (best-effort repeatability; not perfect determinism)
-- `--normalize auto|on|off` (numbers/units/URLs normalization)
-- `--lang en|de|fr|...` (2-letter ISO 639-1; influences normalization)
-- `--metrics` (prints chars/bytes/duration so you can iterate faster)
+- `--normalize auto|on|off` (auto uses server defaults; on/off force text normalization).
+- `--lang` language boost hint (e.g. `en`, `zh`, `auto`).
+- `--format` output audio format (e.g. `mp3`, `mp3_44100_128`, `wav`).
+- `--metrics` prints chars/bytes/duration so you can iterate faster.
 
 ## Quick recipes
 
-Natural narrator (v2 baseline):
+Natural narrator:
 ```
-sag speak -v Roger --stability 0.5 --similarity 0.75 --style 0.0 --normalize auto --lang en \
+sag speak -v "Your Voice" --normalize auto --lang en \
   "We shipped today. It was close… but it worked."
 ```
 
-Fast + cheap (v2.5 Flash):
+Expressive delivery:
 ```
-sag speak -v Roger --model-id eleven_flash_v2_5 --stability 0.5 --normalize auto --lang en \
-  "Short. Crisp. Low latency."
+sag speak -v "Your Voice" --emotion happy --speed 1.05 \
+  "We did it! I can’t believe it actually worked."
 ```
 
-Expressive (v3):
+Calm + slower:
 ```
-sag speak -v Roger --model-id eleven_v3 --stability 0.35 --normalize off --lang en \
-  "[whispers] Don’t move. [short pause] Something’s in the hallway…"
+sag speak -v "Your Voice" --emotion neutral --rate 140 \
+  "Take a breath. Slow down. Let the point land."
 ```

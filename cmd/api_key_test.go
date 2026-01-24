@@ -9,15 +9,15 @@ import (
 func keepEnv(t *testing.T) func() {
 	t.Helper()
 	orig := map[string]string{
-		"ELEVENLABS_API_KEY":      os.Getenv("ELEVENLABS_API_KEY"),
+		"MINIMAX_API_KEY":         os.Getenv("MINIMAX_API_KEY"),
 		"SAG_API_KEY":             os.Getenv("SAG_API_KEY"),
-		"ELEVENLABS_API_KEY_FILE": os.Getenv("ELEVENLABS_API_KEY_FILE"),
+		"MINIMAX_API_KEY_FILE":    os.Getenv("MINIMAX_API_KEY_FILE"),
 		"SAG_API_KEY_FILE":        os.Getenv("SAG_API_KEY_FILE"),
 	}
 	return func() {
-		_ = os.Setenv("ELEVENLABS_API_KEY", orig["ELEVENLABS_API_KEY"])
+		_ = os.Setenv("MINIMAX_API_KEY", orig["MINIMAX_API_KEY"])
 		_ = os.Setenv("SAG_API_KEY", orig["SAG_API_KEY"])
-		_ = os.Setenv("ELEVENLABS_API_KEY_FILE", orig["ELEVENLABS_API_KEY_FILE"])
+		_ = os.Setenv("MINIMAX_API_KEY_FILE", orig["MINIMAX_API_KEY_FILE"])
 		_ = os.Setenv("SAG_API_KEY_FILE", orig["SAG_API_KEY_FILE"])
 	}
 }
@@ -26,9 +26,9 @@ func TestEnsureAPIKeyPrefersCLIValue(t *testing.T) {
 	defer keepEnv(t)()
 	cfg.APIKey = "cli-key"
 	cfg.APIKeyFile = ""
-	_ = os.Unsetenv("ELEVENLABS_API_KEY")
+	_ = os.Unsetenv("MINIMAX_API_KEY")
 	_ = os.Unsetenv("SAG_API_KEY")
-	_ = os.Unsetenv("ELEVENLABS_API_KEY_FILE")
+	_ = os.Unsetenv("MINIMAX_API_KEY_FILE")
 	_ = os.Unsetenv("SAG_API_KEY_FILE")
 
 	if err := ensureAPIKey(); err != nil {
@@ -43,9 +43,9 @@ func TestEnsureAPIKeyFromFileFlag(t *testing.T) {
 	defer keepEnv(t)()
 	cfg.APIKey = ""
 	cfg.APIKeyFile = ""
-	_ = os.Unsetenv("ELEVENLABS_API_KEY")
+	_ = os.Unsetenv("MINIMAX_API_KEY")
 	_ = os.Unsetenv("SAG_API_KEY")
-	_ = os.Unsetenv("ELEVENLABS_API_KEY_FILE")
+	_ = os.Unsetenv("MINIMAX_API_KEY_FILE")
 	_ = os.Unsetenv("SAG_API_KEY_FILE")
 
 	tmp, err := os.CreateTemp("", "sag_api_key")
@@ -73,7 +73,7 @@ func TestEnsureAPIKeyFromEnvFileOrder(t *testing.T) {
 	defer keepEnv(t)()
 	cfg.APIKey = ""
 	cfg.APIKeyFile = ""
-	_ = os.Unsetenv("ELEVENLABS_API_KEY")
+	_ = os.Unsetenv("MINIMAX_API_KEY")
 	_ = os.Unsetenv("SAG_API_KEY")
 
 	tmpPrimary, err := os.CreateTemp("", "sag_api_key_primary")
@@ -100,17 +100,17 @@ func TestEnsureAPIKeyFromEnvFileOrder(t *testing.T) {
 		t.Fatalf("close temp: %v", err)
 	}
 
-	_ = os.Setenv("ELEVENLABS_API_KEY_FILE", tmpPrimary.Name())
+	_ = os.Setenv("MINIMAX_API_KEY_FILE", tmpPrimary.Name())
 	_ = os.Setenv("SAG_API_KEY_FILE", tmpFallback.Name())
 	if err := ensureAPIKey(); err != nil {
 		t.Fatalf("ensureAPIKey error: %v", err)
 	}
 	if cfg.APIKey != "primary-key" {
-		t.Fatalf("expected ELEVENLABS_API_KEY_FILE to be used, got %q", cfg.APIKey)
+		t.Fatalf("expected MINIMAX_API_KEY_FILE to be used, got %q", cfg.APIKey)
 	}
 
 	cfg.APIKey = ""
-	_ = os.Unsetenv("ELEVENLABS_API_KEY_FILE")
+	_ = os.Unsetenv("MINIMAX_API_KEY_FILE")
 	if err := ensureAPIKey(); err != nil {
 		t.Fatalf("ensureAPIKey error: %v", err)
 	}
@@ -123,21 +123,21 @@ func TestEnsureAPIKeyFallsBackToEnvOrder(t *testing.T) {
 	defer keepEnv(t)()
 	cfg.APIKey = ""
 	cfg.APIKeyFile = ""
-	_ = os.Setenv("ELEVENLABS_API_KEY", "env-key")
+	_ = os.Setenv("MINIMAX_API_KEY", "env-key")
 	_ = os.Setenv("SAG_API_KEY", "sag-key")
-	_ = os.Unsetenv("ELEVENLABS_API_KEY_FILE")
+	_ = os.Unsetenv("MINIMAX_API_KEY_FILE")
 	_ = os.Unsetenv("SAG_API_KEY_FILE")
 
 	if err := ensureAPIKey(); err != nil {
 		t.Fatalf("ensureAPIKey error: %v", err)
 	}
 	if cfg.APIKey != "env-key" {
-		t.Fatalf("expected ELEVENLABS_API_KEY to be used, got %q", cfg.APIKey)
+		t.Fatalf("expected MINIMAX_API_KEY to be used, got %q", cfg.APIKey)
 	}
 
 	// Clear primary env to ensure SAG_API_KEY is used next.
 	cfg.APIKey = ""
-	_ = os.Unsetenv("ELEVENLABS_API_KEY")
+	_ = os.Unsetenv("MINIMAX_API_KEY")
 	if err := ensureAPIKey(); err != nil {
 		t.Fatalf("ensureAPIKey error: %v", err)
 	}
@@ -150,9 +150,9 @@ func TestEnsureAPIKeyMissing(t *testing.T) {
 	defer keepEnv(t)()
 	cfg.APIKey = ""
 	cfg.APIKeyFile = ""
-	_ = os.Unsetenv("ELEVENLABS_API_KEY")
+	_ = os.Unsetenv("MINIMAX_API_KEY")
 	_ = os.Unsetenv("SAG_API_KEY")
-	_ = os.Unsetenv("ELEVENLABS_API_KEY_FILE")
+	_ = os.Unsetenv("MINIMAX_API_KEY_FILE")
 	_ = os.Unsetenv("SAG_API_KEY_FILE")
 
 	if err := ensureAPIKey(); err == nil {

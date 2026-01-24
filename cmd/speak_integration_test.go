@@ -1,26 +1,24 @@
 package cmd
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"net/http"
-	"net/http/httptest"
 	"os"
-	"path"
 	"strings"
 	"testing"
+
+	"github.com/steipete/sag/internal/minimax"
 )
 
 func TestSpeakCommand_FlagsBuildRequestAndMetrics(t *testing.T) {
 	t.Helper()
 
-	const voiceID = "abc1234567890123"
+	const voiceID = "voice-123"
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !strings.Contains(r.URL.Path, "/v1/text-to-speech/") {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/t2a_v2" {
 			t.Fatalf("unexpected path: %s", r.URL.Path)
-		}
-		if path.Base(r.URL.Path) != voiceID {
-			t.Fatalf("expected voice ID %q, got %q", voiceID, path.Base(r.URL.Path))
 		}
 
 		var got map[string]any
@@ -28,43 +26,72 @@ func TestSpeakCommand_FlagsBuildRequestAndMetrics(t *testing.T) {
 			t.Fatalf("decode body: %v", err)
 		}
 
-		if got["model_id"] != "eleven_v3" {
-			t.Fatalf("expected model_id eleven_v3, got %v", got["model_id"])
+		if got["model"] != "speech-01" {
+			t.Fatalf("expected model speech-01, got %v", got["model"])
 		}
-		if got["output_format"] != "mp3_44100_128" {
-			t.Fatalf("expected output_format mp3_44100_128, got %v", got["output_format"])
+		if got["text"] != "Hello world" {
+			t.Fatalf("expected text Hello world, got %v", got["text"])
 		}
-		if got["seed"] != float64(42) {
-			t.Fatalf("expected seed 42, got %v", got["seed"])
+		if v, ok := got["stream"]; ok && v != false {
+			t.Fatalf("expected stream false, got %v", v)
 		}
-		if got["apply_text_normalization"] != "auto" {
-			t.Fatalf("expected apply_text_normalization auto, got %v", got["apply_text_normalization"])
+		if got["language_boost"] != "en" {
+			t.Fatalf("expected language_boost en, got %v", got["language_boost"])
 		}
-		if got["language_code"] != "en" {
-			t.Fatalf("expected language_code en, got %v", got["language_code"])
+		if got["output_format"] != "mp3" {
+			t.Fatalf("expected output_format mp3, got %v", got["output_format"])
 		}
 
-		vs, ok := got["voice_settings"].(map[string]any)
+		voiceSettings, ok := got["voice_setting"].(map[string]any)
 		if !ok {
-			t.Fatalf("expected voice_settings object, got %T", got["voice_settings"])
+			t.Fatalf("expected voice_setting object, got %T", got["voice_setting"])
 		}
-		if vs["stability"] != 0.5 {
-			t.Fatalf("expected stability 0.5, got %v", vs["stability"])
+		if voiceSettings["voice_id"] != voiceID {
+			t.Fatalf("expected voice_id %q, got %v", voiceID, voiceSettings["voice_id"])
 		}
-		if vs["similarity_boost"] != 0.8 {
-			t.Fatalf("expected similarity_boost 0.8, got %v", vs["similarity_boost"])
+		if voiceSettings["text_normalization"] != true {
+			t.Fatalf("expected text_normalization true, got %v", voiceSettings["text_normalization"])
 		}
-		if vs["style"] != 0.1 {
-			t.Fatalf("expected style 0.1, got %v", vs["style"])
+		if voiceSettings["emotion"] != "happy" {
+			t.Fatalf("expected emotion happy, got %v", voiceSettings["emotion"])
 		}
-		if vs["use_speaker_boost"] != true {
-			t.Fatalf("expected use_speaker_boost true, got %v", vs["use_speaker_boost"])
+		if voiceSettings["pitch"] != float64(2) {
+			t.Fatalf("expected pitch 2, got %v", voiceSettings["pitch"])
+		}
+		if voiceSettings["vol"] != 1.5 {
+			t.Fatalf("expected vol 1.5, got %v", voiceSettings["vol"])
 		}
 
+		audioSetting, ok := got["audio_setting"].(map[string]any)
+		if !ok {
+			t.Fatalf("expected audio_setting object, got %T", got["audio_setting"])
+		}
+		if audioSetting["format"] != "mp3" {
+			t.Fatalf("expected audio_setting.format mp3, got %v", audioSetting["format"])
+		}
+		if audioSetting["sample_rate"] != float64(44100) {
+			t.Fatalf("expected audio_setting.sample_rate 44100, got %v", audioSetting["sample_rate"])
+		}
+		if audioSetting["bitrate"] != float64(128000) {
+			t.Fatalf("expected audio_setting.bitrate 128000, got %v", audioSetting["bitrate"])
+		}
+
+		resp := map[string]any{
+			"data": map[string]any{
+				"audio":  hex.EncodeToString([]byte("audio-bytes")),
+				"status": 2,
+			},
+			"base_resp": map[string]any{
+				"status_code": 0,
+				"status_msg":  "success",
+			},
+		}
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("audio-bytes"))
-	}))
-	defer srv.Close()
+		_ = json.NewEncoder(w).Encode(resp)
+	})
+
+	minimax.SetHTTPClient(&http.Client{Transport: handlerRoundTripper{handler: handler}})
+	defer minimax.SetHTTPClient(nil)
 
 	tmp := t.TempDir()
 	outPath := tmp + "/out.mp3"
@@ -74,20 +101,18 @@ func TestSpeakCommand_FlagsBuildRequestAndMetrics(t *testing.T) {
 
 	rootCmd.SetArgs([]string{
 		"--api-key", "testkey",
-		"--base-url", srv.URL,
+		"--base-url", "http://minimax.test",
 		"speak",
 		"--voice-id", voiceID,
 		"--stream=false",
 		"--play=false",
 		"--output", outPath,
 		"--metrics",
-		"--stability", "0.5",
-		"--similarity-boost", "0.8",
-		"--style", "0.1",
-		"--speaker-boost",
-		"--seed", "42",
-		"--normalize", "auto",
-		"--lang", "EN",
+		"--emotion", "happy",
+		"--pitch", "2",
+		"--volume", "1.5",
+		"--normalize", "on",
+		"--lang", "en",
 		"Hello world",
 	})
 
