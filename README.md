@@ -26,7 +26,7 @@ API key (in order of priority):
 Store your API key securely in the system keychain:
 ```bash
 sag keychain set    # prompts for API key
-sag keychain get    # retrieve stored key
+sag keychain status # check if key is stored
 sag keychain delete # remove from keychain
 ```
 

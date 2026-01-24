@@ -52,20 +52,21 @@ var keychainSetCmd = &cobra.Command{
 	},
 }
 
-var keychainGetCmd = &cobra.Command{
-	Use:   "get",
-	Short: "Retrieve API key from system keychain",
-	Long:  "Retrieve and display the ElevenLabs API key from the system keychain.",
+var keychainStatusCmd = &cobra.Command{
+	Use:   "status",
+	Short: "Check if API key is stored in system keychain",
+	Long:  "Check whether an ElevenLabs API key is stored in the system keychain.",
 	RunE: func(_ *cobra.Command, _ []string) error {
-		secret, err := keyring.Get(keychainService, keychainUser)
+		_, err := keyring.Get(keychainService, keychainUser)
 		if err != nil {
 			if err == keyring.ErrNotFound {
-				return fmt.Errorf("no API key found in keychain (use 'sag keychain set' to store one)")
+				fmt.Println("No API key stored in keychain")
+				return nil
 			}
-			return fmt.Errorf("failed to retrieve API key from keychain: %w", err)
+			return fmt.Errorf("failed to check keychain: %w", err)
 		}
 
-		fmt.Println(secret)
+		fmt.Println("API key is stored in keychain")
 		return nil
 	},
 }
@@ -89,7 +90,7 @@ var keychainDeleteCmd = &cobra.Command{
 
 func init() {
 	keychainCmd.AddCommand(keychainSetCmd)
-	keychainCmd.AddCommand(keychainGetCmd)
+	keychainCmd.AddCommand(keychainStatusCmd)
 	keychainCmd.AddCommand(keychainDeleteCmd)
 	rootCmd.AddCommand(keychainCmd)
 }
