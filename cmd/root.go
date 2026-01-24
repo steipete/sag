@@ -72,7 +72,8 @@ func maybeDefaultToSpeak() {
 
 func isCobraBuiltin(name string) bool {
 	name = strings.ToLower(name)
-	return name == "help" || name == "completion"
+	return name == "help" || name == "completion" ||
+		name == "__complete" || name == "__completenodesc"
 }
 
 func isKnownSubcommand(name string) bool {

@@ -43,6 +43,8 @@ func TestMaybeDefaultToSpeak_Builtins(t *testing.T) {
 	cases := [][]string{
 		{"sag", "help"},
 		{"sag", "completion"},
+		{"sag", "__complete"},
+		{"sag", "__completeNoDesc"},
 	}
 	for _, args := range cases {
 		t.Run(args[1], func(t *testing.T) {
