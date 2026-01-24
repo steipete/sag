@@ -469,6 +469,9 @@ func resolveVoice(ctx context.Context, client *elevenlabs.Client, voiceInput str
 	}
 
 	if looksLikeVoiceID(voiceInput) {
+		if containsDigit(voiceInput) {
+			return voiceInput, nil
+		}
 		ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 		defer cancel()
 		voices, err := client.ListVoices(ctx, voiceInput)
@@ -508,6 +511,15 @@ func resolveVoice(ctx context.Context, client *elevenlabs.Client, voiceInput str
 
 func looksLikeVoiceID(voiceInput string) bool {
 	return len(voiceInput) >= 15 && !strings.ContainsRune(voiceInput, ' ')
+}
+
+func containsDigit(s string) bool {
+	for _, r := range s {
+		if r >= '0' && r <= '9' {
+			return true
+		}
+	}
+	return false
 }
 
 func inferFormatFromExt(path string) string {

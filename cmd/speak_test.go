@@ -153,19 +153,37 @@ func TestResolveVoiceDefaultsToFirst(t *testing.T) {
 	}
 }
 
-func TestResolveVoicePassThroughID(t *testing.T) {
-	// Should short-circuit without hitting the server when input looks like an ID.
+func TestResolveVoicePassThroughIDWithDigits(t *testing.T) {
+	// Should short-circuit without hitting the server when input looks like an ID with digits.
 	srv := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
 		t.Fatalf("server should not be called for ID pass-through")
 	}))
 	defer srv.Close()
 
 	client := elevenlabs.NewClient("key", srv.URL)
-	id, err := resolveVoice(context.Background(), client, "abc1234567890123", true)
+	id, err := resolveVoice(context.Background(), client, "abc1234567890123", false)
 	if err != nil {
 		t.Fatalf("resolveVoice error: %v", err)
 	}
 	if id != "abc1234567890123" {
+		t.Fatalf("expected ID to pass through, got %q", id)
+	}
+}
+
+func TestResolveVoiceForceIDPassThrough(t *testing.T) {
+	// Should short-circuit without hitting the server when --voice-id is set.
+	srv := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
+		t.Fatalf("server should not be called for forced ID pass-through")
+	}))
+	defer srv.Close()
+
+	client := elevenlabs.NewClient("key", srv.URL)
+	input := "OnlyLettersVoiceID"
+	id, err := resolveVoice(context.Background(), client, input, true)
+	if err != nil {
+		t.Fatalf("resolveVoice error: %v", err)
+	}
+	if id != input {
 		t.Fatalf("expected ID to pass through, got %q", id)
 	}
 }
