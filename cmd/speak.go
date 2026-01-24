@@ -432,7 +432,7 @@ func resolveVoice(ctx context.Context, client *elevenlabs.Client, voiceInput str
 	if voiceInput == "" {
 		ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 		defer cancel()
-		voices, err := client.ListVoices(ctx, "")
+		voices, err := client.ListVoices(ctx)
 		if err != nil {
 			return "", fmt.Errorf("voice not specified and failed to fetch voices: %w", err)
 		}
@@ -445,7 +445,7 @@ func resolveVoice(ctx context.Context, client *elevenlabs.Client, voiceInput str
 	if voiceInput == "?" {
 		ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 		defer cancel()
-		voices, err := client.ListVoices(ctx, "")
+		voices, err := client.ListVoices(ctx)
 		if err != nil {
 			return "", err
 		}
@@ -474,7 +474,7 @@ func resolveVoice(ctx context.Context, client *elevenlabs.Client, voiceInput str
 		}
 		ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 		defer cancel()
-		voices, err := client.ListVoices(ctx, voiceInput)
+		voices, err := client.ListVoices(ctx)
 		if err != nil {
 			return "", err
 		}
@@ -490,22 +490,28 @@ func resolveVoice(ctx context.Context, client *elevenlabs.Client, voiceInput str
 
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	voices, err := client.ListVoices(ctx, voiceInput)
+	voices, err := client.ListVoices(ctx)
 	if err != nil {
 		return "", err
 	}
 	voiceInputLower := strings.ToLower(voiceInput)
+
+	// First, check for exact match (case-insensitive)
 	for _, v := range voices {
 		if strings.ToLower(v.Name) == voiceInputLower {
 			fmt.Fprintf(os.Stderr, "using voice %s (%s)\n", v.Name, v.VoiceID)
 			return v.VoiceID, nil
 		}
 	}
-	if len(voices) > 0 {
-		v := voices[0]
-		fmt.Fprintf(os.Stderr, "using closest voice match %s (%s)\n", v.Name, v.VoiceID)
-		return v.VoiceID, nil
+
+	// Then, check for substring match (case-insensitive)
+	for _, v := range voices {
+		if strings.Contains(strings.ToLower(v.Name), voiceInputLower) {
+			fmt.Fprintf(os.Stderr, "using voice %s (%s)\n", v.Name, v.VoiceID)
+			return v.VoiceID, nil
+		}
 	}
+
 	return "", fmt.Errorf("voice %q not found; try 'sag voices' or -v '?'", voiceInput)
 }
 

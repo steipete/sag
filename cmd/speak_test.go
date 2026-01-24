@@ -235,9 +235,27 @@ func TestResolveVoiceLooksLikeIDNoMatchPassesThrough(t *testing.T) {
 	}
 }
 
-func TestResolveVoiceClosestMatch(t *testing.T) {
+func TestResolveVoiceNoMatch(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		if _, err := w.Write([]byte(`{"voices":[{"voice_id":"id1","name":"Near","category":"premade"}]}`)); err != nil {
+			t.Fatalf("write response: %v", err)
+		}
+	}))
+	defer srv.Close()
+
+	client := elevenlabs.NewClient("key", srv.URL)
+	_, err := resolveVoice(context.Background(), client, "nothing-match", false)
+	if err == nil {
+		t.Fatalf("expected error for non-matching voice")
+	}
+	if !strings.Contains(err.Error(), "not found") {
+		t.Fatalf("expected 'not found' error, got %q", err.Error())
+	}
+}
+
+func TestResolveVoicePartialMatch(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if _, err := w.Write([]byte(`{"voices":[{"voice_id":"id1","name":"Sarah","category":"premade"},{"voice_id":"id2","name":"Roger - Casual","category":"premade"}]}`)); err != nil {
 			t.Fatalf("write response: %v", err)
 		}
 	}))
@@ -247,15 +265,15 @@ func TestResolveVoiceClosestMatch(t *testing.T) {
 	defer restore()
 
 	client := elevenlabs.NewClient("key", srv.URL)
-	id, err := resolveVoice(context.Background(), client, "nothing-match", false)
+	id, err := resolveVoice(context.Background(), client, "roger", false)
 	if err != nil {
 		t.Fatalf("resolveVoice error: %v", err)
 	}
-	if id != "id1" {
-		t.Fatalf("expected closest id1, got %q", id)
+	if id != "id2" {
+		t.Fatalf("expected id2 for partial match 'roger', got %q", id)
 	}
-	if out := read(); !strings.Contains(out, "using closest voice match") {
-		t.Fatalf("expected closest match notice, got %q", out)
+	if out := read(); !strings.Contains(out, "using voice") {
+		t.Fatalf("expected 'using voice' notice, got %q", out)
 	}
 }
 
@@ -440,11 +458,7 @@ func captureStderr(t *testing.T) (restore func(), read func() string) {
 
 func TestResolveVoiceByName(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// ensure search param contains name
-		if !strings.Contains(r.URL.RawQuery, "search=roger") {
-			t.Fatalf("expected search param to contain 'roger', got %s", r.URL.RawQuery)
-		}
-		if _, err := w.Write([]byte(`{"voices":[{"voice_id":"id-roger","name":"Roger","category":"premade"}]}`)); err != nil {
+		if _, err := w.Write([]byte(`{"voices":[{"voice_id":"id-sarah","name":"Sarah","category":"premade"},{"voice_id":"id-roger","name":"Roger","category":"premade"}]}`)); err != nil {
 			t.Fatalf("write response: %v", err)
 		}
 	}))

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"text/tabwriter"
 	"time"
 
@@ -33,9 +34,12 @@ func init() {
 			ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)
 			defer cancel()
 
-			voices, err := client.ListVoices(ctx, opts.search)
+			voices, err := client.ListVoices(ctx)
 			if err != nil {
 				return err
+			}
+			if opts.search != "" {
+				voices = filterVoicesByName(voices, opts.search)
 			}
 
 			if opts.limit > 0 && len(voices) > opts.limit {
@@ -55,7 +59,18 @@ func init() {
 		},
 	}
 
-	cmd.Flags().StringVar(&opts.search, "search", "", "Filter voices by name (server-side when supported)")
+	cmd.Flags().StringVar(&opts.search, "search", "", "Filter voices by name (client-side)")
 	cmd.Flags().IntVar(&opts.limit, "limit", opts.limit, "Maximum rows to display (0 = all)")
 	rootCmd.AddCommand(cmd)
+}
+
+func filterVoicesByName(voices []elevenlabs.Voice, search string) []elevenlabs.Voice {
+	searchLower := strings.ToLower(search)
+	filtered := make([]elevenlabs.Voice, 0, len(voices))
+	for _, v := range voices {
+		if strings.Contains(strings.ToLower(v.Name), searchLower) {
+			filtered = append(filtered, v)
+		}
+	}
+	return filtered
 }

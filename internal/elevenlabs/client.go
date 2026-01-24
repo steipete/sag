@@ -47,18 +47,13 @@ type listVoicesResponse struct {
 	Next   *string `json:"next_page_token,omitempty"`
 }
 
-// ListVoices fetches voices; search filters by name substring when provided.
-func (c *Client) ListVoices(ctx context.Context, search string) ([]Voice, error) {
+// ListVoices fetches available voices.
+func (c *Client) ListVoices(ctx context.Context) ([]Voice, error) {
 	u, err := url.Parse(c.baseURL)
 	if err != nil {
 		return nil, err
 	}
 	u.Path = path.Join(u.Path, "/v1/voices")
-	if search != "" {
-		q := u.Query()
-		q.Set("search", search)
-		u.RawQuery = q.Encode()
-	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 	if err != nil {

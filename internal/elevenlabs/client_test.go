@@ -23,21 +23,18 @@ func TestListVoices(t *testing.T) {
 		if r.URL.Path != "/v1/voices" {
 			t.Fatalf("unexpected path: %s", r.URL.Path)
 		}
-		if search := r.URL.Query().Get("search"); search != "roger" {
-			t.Fatalf("expected search query 'roger', got %q", search)
-		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"voices":[{"voice_id":"id1","name":"Roger","category":"premade"}]}`))
+		_, _ = w.Write([]byte(`{"voices":[{"voice_id":"id1","name":"Sarah","category":"premade"},{"voice_id":"id2","name":"Roger","category":"premade"}]}`))
 	}))
 	defer srv.Close()
 
 	c := NewClient("key", srv.URL)
-	voices, err := c.ListVoices(context.Background(), "roger")
+	voices, err := c.ListVoices(context.Background())
 	if err != nil {
 		t.Fatalf("ListVoices error: %v", err)
 	}
-	if len(voices) != 1 || voices[0].VoiceID != "id1" {
-		t.Fatalf("unexpected voices: %+v", voices)
+	if len(voices) != 2 {
+		t.Fatalf("expected 2 voices, got: %+v", voices)
 	}
 }
 
