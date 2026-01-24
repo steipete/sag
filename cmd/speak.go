@@ -62,26 +62,24 @@ func init() {
 			return ensureAPIKey()
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if opts.speed <= 0.5 || opts.speed >= 2.0 {
-				return errors.New("speed must be between 0.5 and 2.0 (e.g. 1.1 for 10% faster)")
-			}
-			if opts.rateWPM > 0 {
-				// Map macOS `say` rate (words per minute) to ElevenLabs speed multiplier.
-				opts.speed = float64(opts.rateWPM) / float64(defaultWPM)
-				if opts.speed <= 0.5 || opts.speed >= 2.0 {
-					return fmt.Errorf("rate %d wpm maps to speed %.2f, which is outside the allowed 0.5–2.0 range", opts.rateWPM, opts.speed)
-				}
+			if err := applyRateAndSpeed(&opts); err != nil {
+				return err
 			}
 
-			if opts.voiceID == "" {
-				opts.voiceID = os.Getenv("ELEVENLABS_VOICE_ID")
-			}
-			if opts.voiceID == "" {
-				opts.voiceID = os.Getenv("SAG_VOICE_ID")
+			forceVoiceID := cmd.Flags().Changed("voice-id")
+			voiceInput := opts.voiceID
+			if voiceInput == "" {
+				if env := os.Getenv("ELEVENLABS_VOICE_ID"); env != "" {
+					voiceInput = env
+					forceVoiceID = true
+				} else if env := os.Getenv("SAG_VOICE_ID"); env != "" {
+					voiceInput = env
+					forceVoiceID = true
+				}
 			}
 			client := elevenlabs.NewClient(cfg.APIKey, cfg.BaseURL)
 
-			voiceID, err := resolveVoice(cmd.Context(), client, opts.voiceID)
+			voiceID, err := resolveVoice(cmd.Context(), client, voiceInput, forceVoiceID)
 			if err != nil {
 				return err
 			}
@@ -170,6 +168,21 @@ func init() {
 	cmd.Flags().Int("quality", 0, "Accepted for macOS say compatibility (not implemented)")
 
 	rootCmd.AddCommand(cmd)
+}
+
+func applyRateAndSpeed(opts *speakOptions) error {
+	if opts.rateWPM > 0 {
+		// Map macOS `say` rate (words per minute) to ElevenLabs speed multiplier.
+		opts.speed = float64(opts.rateWPM) / float64(defaultWPM)
+		if opts.speed <= 0.5 || opts.speed >= 2.0 {
+			return fmt.Errorf("rate %d wpm maps to speed %.2f, which is outside the allowed 0.5–2.0 range", opts.rateWPM, opts.speed)
+		}
+		return nil
+	}
+	if opts.speed <= 0.5 || opts.speed >= 2.0 {
+		return errors.New("speed must be between 0.5 and 2.0 (e.g. 1.1 for 10% faster)")
+	}
+	return nil
 }
 
 func buildTTSRequest(cmd *cobra.Command, opts speakOptions, text string) (elevenlabs.TTSRequest, error) {
@@ -414,7 +427,7 @@ func convertAndPlay(ctx context.Context, client *elevenlabs.Client, opts speakOp
 	return n, nil
 }
 
-func resolveVoice(ctx context.Context, client *elevenlabs.Client, voiceInput string) (string, error) {
+func resolveVoice(ctx context.Context, client *elevenlabs.Client, voiceInput string, forceID bool) (string, error) {
 	voiceInput = strings.TrimSpace(voiceInput)
 	if voiceInput == "" {
 		ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
@@ -451,8 +464,24 @@ func resolveVoice(ctx context.Context, client *elevenlabs.Client, voiceInput str
 		return "", nil
 	}
 
-	// If input looks like an ID (UUID-like), use directly.
-	if len(voiceInput) >= 15 && strings.ContainsAny(voiceInput, "0123456789") {
+	if forceID {
+		return voiceInput, nil
+	}
+
+	if looksLikeVoiceID(voiceInput) {
+		ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		defer cancel()
+		voices, err := client.ListVoices(ctx, voiceInput)
+		if err != nil {
+			return "", err
+		}
+		voiceInputLower := strings.ToLower(voiceInput)
+		for _, v := range voices {
+			if strings.ToLower(v.Name) == voiceInputLower {
+				fmt.Fprintf(os.Stderr, "using voice %s (%s)\n", v.Name, v.VoiceID)
+				return v.VoiceID, nil
+			}
+		}
 		return voiceInput, nil
 	}
 
@@ -475,6 +504,10 @@ func resolveVoice(ctx context.Context, client *elevenlabs.Client, voiceInput str
 		return v.VoiceID, nil
 	}
 	return "", fmt.Errorf("voice %q not found; try 'sag voices' or -v '?'", voiceInput)
+}
+
+func looksLikeVoiceID(voiceInput string) bool {
+	return len(voiceInput) >= 15 && !strings.ContainsRune(voiceInput, ' ')
 }
 
 func inferFormatFromExt(path string) string {

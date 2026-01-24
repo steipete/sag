@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"io"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -116,6 +117,24 @@ func TestResolveTextEmptyFile(t *testing.T) {
 	}
 }
 
+func TestApplyRateOverridesInvalidSpeed(t *testing.T) {
+	opts := &speakOptions{speed: 0.3, rateWPM: 200}
+	if err := applyRateAndSpeed(opts); err != nil {
+		t.Fatalf("applyRateAndSpeed error: %v", err)
+	}
+	want := float64(200) / float64(defaultWPM)
+	if math.Abs(opts.speed-want) > 1e-9 {
+		t.Fatalf("expected speed %.2f, got %.2f", want, opts.speed)
+	}
+}
+
+func TestApplyRateAndSpeedInvalidSpeed(t *testing.T) {
+	opts := &speakOptions{speed: 0.3}
+	if err := applyRateAndSpeed(opts); err == nil {
+		t.Fatalf("expected speed validation error")
+	}
+}
+
 func TestResolveVoiceDefaultsToFirst(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		if _, err := w.Write([]byte(`{"voices":[{"voice_id":"id1","name":"Alpha","category":"premade"},{"voice_id":"id2","name":"Beta","category":"premade"}]}`)); err != nil {
@@ -125,7 +144,7 @@ func TestResolveVoiceDefaultsToFirst(t *testing.T) {
 	defer srv.Close()
 
 	client := elevenlabs.NewClient("key", srv.URL)
-	id, err := resolveVoice(context.Background(), client, "")
+	id, err := resolveVoice(context.Background(), client, "", false)
 	if err != nil {
 		t.Fatalf("resolveVoice error: %v", err)
 	}
@@ -142,12 +161,59 @@ func TestResolveVoicePassThroughID(t *testing.T) {
 	defer srv.Close()
 
 	client := elevenlabs.NewClient("key", srv.URL)
-	id, err := resolveVoice(context.Background(), client, "abc1234567890123")
+	id, err := resolveVoice(context.Background(), client, "abc1234567890123", true)
 	if err != nil {
 		t.Fatalf("resolveVoice error: %v", err)
 	}
 	if id != "abc1234567890123" {
 		t.Fatalf("expected ID to pass through, got %q", id)
+	}
+}
+
+func TestResolveVoiceLongNameExactMatch(t *testing.T) {
+	var called bool
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		called = true
+		if _, err := w.Write([]byte(`{"voices":[{"voice_id":"id-long","name":"LongVoiceNameAlpha","category":"premade"}]}`)); err != nil {
+			t.Fatalf("write response: %v", err)
+		}
+	}))
+	defer srv.Close()
+
+	client := elevenlabs.NewClient("key", srv.URL)
+	id, err := resolveVoice(context.Background(), client, "LongVoiceNameAlpha", false)
+	if err != nil {
+		t.Fatalf("resolveVoice error: %v", err)
+	}
+	if !called {
+		t.Fatalf("expected voice lookup for long name")
+	}
+	if id != "id-long" {
+		t.Fatalf("expected id-long, got %q", id)
+	}
+}
+
+func TestResolveVoiceLooksLikeIDNoMatchPassesThrough(t *testing.T) {
+	var called bool
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		called = true
+		if _, err := w.Write([]byte(`{"voices":[{"voice_id":"id1","name":"Other","category":"premade"}]}`)); err != nil {
+			t.Fatalf("write response: %v", err)
+		}
+	}))
+	defer srv.Close()
+
+	client := elevenlabs.NewClient("key", srv.URL)
+	input := "LongVoiceNameAlpha"
+	id, err := resolveVoice(context.Background(), client, input, false)
+	if err != nil {
+		t.Fatalf("resolveVoice error: %v", err)
+	}
+	if !called {
+		t.Fatalf("expected voice lookup for ambiguous input")
+	}
+	if id != input {
+		t.Fatalf("expected %q to pass through, got %q", input, id)
 	}
 }
 
@@ -163,7 +229,7 @@ func TestResolveVoiceClosestMatch(t *testing.T) {
 	defer restore()
 
 	client := elevenlabs.NewClient("key", srv.URL)
-	id, err := resolveVoice(context.Background(), client, "nothing-match")
+	id, err := resolveVoice(context.Background(), client, "nothing-match", false)
 	if err != nil {
 		t.Fatalf("resolveVoice error: %v", err)
 	}
@@ -187,7 +253,7 @@ func TestResolveVoiceListOutputsTable(t *testing.T) {
 	defer restore()
 
 	client := elevenlabs.NewClient("key", srv.URL)
-	id, err := resolveVoice(context.Background(), client, "?")
+	id, err := resolveVoice(context.Background(), client, "?", false)
 	if err != nil {
 		t.Fatalf("resolveVoice error: %v", err)
 	}
@@ -367,7 +433,7 @@ func TestResolveVoiceByName(t *testing.T) {
 	defer srv.Close()
 
 	client := elevenlabs.NewClient("key", srv.URL)
-	id, err := resolveVoice(context.Background(), client, "roger")
+	id, err := resolveVoice(context.Background(), client, "roger", false)
 	if err != nil {
 		t.Fatalf("resolveVoice error: %v", err)
 	}
