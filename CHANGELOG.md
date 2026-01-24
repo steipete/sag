@@ -1,6 +1,8 @@
 # Changelog
 
 ## 0.2.2 - Unreleased
+### Fixed
+- Voice ID resolution respects `--voice-id` and avoids misclassifying long names; `--rate` now overrides `--speed` validation. (#7, thanks @joelbdavies)
 
 ## 0.2.1 - 2026-01-01
 ### Fixed
