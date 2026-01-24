@@ -15,9 +15,31 @@ go install ./cmd/sag
 Requires Go 1.24+.
 
 ## Configuration
-- `ELEVENLABS_API_KEY` (required)
+
+API key (in order of priority):
+1. `--api-key` flag
+2. `--api-key-file` flag or `ELEVENLABS_API_KEY_FILE`/`SAG_API_KEY_FILE` env vars
+3. System keychain (see below)
+4. `ELEVENLABS_API_KEY` or `SAG_API_KEY` env vars
+
+### System Keychain (recommended)
+Store your API key securely in the system keychain:
+```bash
+sag keychain set    # prompts for API key
+sag keychain get    # retrieve stored key
+sag keychain delete # remove from keychain
+```
+
+Supported backends:
+- **macOS**: Keychain
+- **Windows**: Credential Manager
+- **Linux**: Secret Service (GNOME Keyring)
+
+### Other options
 - `--api-key-file` or `ELEVENLABS_API_KEY_FILE`/`SAG_API_KEY_FILE` to load the key from a file
-- Optional defaults: `ELEVENLABS_VOICE_ID` or `SAG_VOICE_ID`
+- `ELEVENLABS_API_KEY` or `SAG_API_KEY` environment variables
+
+Optional defaults: `ELEVENLABS_VOICE_ID` or `SAG_VOICE_ID`
 
 ## Usage
 

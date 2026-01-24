@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+### Added
+- System keychain support for secure API key storage via `sag keychain set/get/delete`. Supports macOS Keychain, Windows Credential Manager, and Linux Secret Service. (#6, thanks @GiGurra)
 
 ## 0.2.2 - 2026-01-24
 ### Fixed

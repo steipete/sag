@@ -15,13 +15,16 @@ func ensureAPIKey() error {
 		cfg.APIKey = key
 	}
 	if cfg.APIKey == "" {
+		cfg.APIKey = getAPIKeyFromKeychain()
+	}
+	if cfg.APIKey == "" {
 		cfg.APIKey = os.Getenv("ELEVENLABS_API_KEY")
 	}
 	if cfg.APIKey == "" {
 		cfg.APIKey = os.Getenv("SAG_API_KEY")
 	}
 	if cfg.APIKey == "" {
-		return fmt.Errorf("missing ElevenLabs API key (set --api-key, --api-key-file, or ELEVENLABS_API_KEY)")
+		return fmt.Errorf("missing ElevenLabs API key (set --api-key, --api-key-file, keychain, or ELEVENLABS_API_KEY)")
 	}
 	return nil
 }
