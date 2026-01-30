@@ -1,6 +1,6 @@
-# sag 🗣️ — “Mac-style speech with ElevenLabs”
+# sag 🗣️ — “Mac-style speech with ElevenLabs and MiniMax”
 
-One-liner TTS that works like `say`: stream to speakers by default, list voices, or save audio files.
+One-liner TTS that works like `say`: stream to speakers by default, list voices, or save audio files. Defaults to ElevenLabs, with MiniMax available via `speech-*` model IDs.
 
 ## Install
 Homebrew (macOS):
@@ -15,18 +15,20 @@ go install ./cmd/sag
 Requires Go 1.24+.
 
 ## Configuration
-- `ELEVENLABS_API_KEY` (required)
-- `--api-key-file` or `ELEVENLABS_API_KEY_FILE`/`SAG_API_KEY_FILE` to load the key from a file
-- Optional defaults: `ELEVENLABS_VOICE_ID` or `SAG_VOICE_ID`
+- ElevenLabs: `ELEVENLABS_API_KEY` (or `SAG_API_KEY`)
+- MiniMax: `MINIMAX_API_KEY` (or `SAG_API_KEY`)
+- `--api-key-file` or `ELEVENLABS_API_KEY_FILE`/`MINIMAX_API_KEY_FILE`/`SAG_API_KEY_FILE` to load the key from a file
+- Optional defaults: `ELEVENLABS_VOICE_ID`, `MINIMAX_VOICE_ID`, or `SAG_VOICE_ID`
+- Optional: `MINIMAX_API_HOST` or `MINIMAX_BASE_URL` to override the MiniMax base URL
 
 ## Usage
 
 Features:
 - macOS `say`-style default: `sag "Hello"` routes to `speak` automatically.
 - Streaming playback to speakers with optional file output.
-- Voice discovery via `sag voices` and `-v ?`.
+- Voice discovery via `sag voices` (ElevenLabs) and `-v ?` (provider-specific).
 - Speed/rate controls, latency tiers, and format inference from output extension.
-- Model selection via `--model-id` (defaults to `eleven_v3`; use `eleven_multilingual_v2` for a stable baseline).
+- Model selection via `--model-id` (defaults to `eleven_v3`; use `eleven_multilingual_v2` for a stable baseline, `speech-*` for MiniMax).
 
 Speak (streams audio):
 ```bash
@@ -52,6 +54,8 @@ sag speak -v Roger --stream --latency-tier 3 "Faster start"
 sag speak -v Roger --speed 1.2 "Talk a bit faster"
 sag speak -v Roger --model-id eleven_multilingual_v2 "Use stable v2 baseline"
 sag speak -v Roger --output out.wav --format pcm_44100 "Wave output"
+sag speak --model-id speech-01 -v ? "List MiniMax voices"
+sag speak --model-id speech-01 --output out.flac --stream=false "MiniMax file output"
 ```
 
 Key flags (subset):
@@ -94,7 +98,11 @@ Highlights:
 
 ## Models / engines
 
-`sag` supports any ElevenLabs `model_id` via `--model-id` (we pass it through). Practical defaults + common IDs:
+Provider selection:
+- ElevenLabs (default): any ElevenLabs `model_id` via `--model-id` (we pass it through).
+- MiniMax: use a `speech-*` model ID to route requests to MiniMax. Streaming/playback is MP3-only; use `--stream=false` for WAV/FLAC output.
+
+Practical defaults + common ElevenLabs IDs:
 
 | Engine | `--model-id` | Prompting style | Best for |
 |---|---|---|---|
@@ -123,6 +131,6 @@ Notes:
   - Build: `go build ./cmd/sag`
 
 ## Limitations
-- ElevenLabs account and API key required.
+- ElevenLabs or MiniMax account and API key required (per provider).
 - Voice defaults to first available if not provided.
 - Non-mac platforms: playback still works via `go-mp3` + `oto`, but device selection flags are no-ops.
