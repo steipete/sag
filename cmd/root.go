@@ -52,6 +52,10 @@ func init() {
 // maybeDefaultToSpeak injects the "speak" subcommand when the user calls `sag` like macOS `say`.
 func maybeDefaultToSpeak() {
 	if len(os.Args) <= 1 {
+		// Still default to speak if stdin has piped data
+		if !isStdinTTY() {
+			os.Args = append(os.Args, "speak")
+		}
 		return
 	}
 
