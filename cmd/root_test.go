@@ -113,3 +113,33 @@ func TestExecuteHelp(t *testing.T) {
 		t.Fatalf("unreachable")
 	}
 }
+
+func TestMaybeDefaultToSpeak_PipedStdin(t *testing.T) {
+	defer keepArgs(t)()
+
+	// Replace stdin with a pipe (non-TTY)
+	origStdin := os.Stdin
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("failed to create pipe: %v", err)
+	}
+	os.Stdin = r
+	defer func() {
+		os.Stdin = origStdin
+		r.Close()
+		w.Close()
+	}()
+
+	os.Args = []string{"sag"}
+	maybeDefaultToSpeak()
+
+	want := []string{"sag", "speak"}
+	if len(os.Args) != len(want) {
+		t.Fatalf("expected %v, got %v", want, os.Args)
+	}
+	for i := range want {
+		if os.Args[i] != want[i] {
+			t.Fatalf("args mismatch at %d: got %q want %q", i, os.Args[i], want[i])
+		}
+	}
+}
