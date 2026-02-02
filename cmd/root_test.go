@@ -126,8 +126,8 @@ func TestMaybeDefaultToSpeak_PipedStdin(t *testing.T) {
 	os.Stdin = r
 	defer func() {
 		os.Stdin = origStdin
-		r.Close()
 		w.Close()
+		r.Close()
 	}()
 
 	os.Args = []string{"sag"}
