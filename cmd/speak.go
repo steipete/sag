@@ -35,6 +35,7 @@ type speakOptions struct {
 	normalize   string
 	lang        string
 	metrics     bool
+	player      string
 
 	speakerBoost   bool
 	noSpeakerBoost bool
@@ -105,6 +106,24 @@ func init() {
 				}
 			}
 
+			// Resolve player backend.
+			playerChoice := opts.player
+			if playerChoice == "" || playerChoice == "auto" {
+				if env := os.Getenv("SAG_PLAYER"); env != "" {
+					playerChoice = env
+				}
+			}
+			switch playerChoice {
+			case "", "auto":
+				// Default: build tags route StreamToSpeakers to the right backend.
+			case "afplay":
+				playToSpeakers = audio.StreamViaAfplay
+			case "oto":
+				playToSpeakers = audio.StreamViaOto
+			default:
+				return fmt.Errorf("unknown player %q; choose auto, afplay, or oto", playerChoice)
+			}
+
 			ctx, cancel := context.WithTimeout(cmd.Context(), 90*time.Second)
 			defer cancel()
 
@@ -156,6 +175,7 @@ func init() {
 	cmd.Flags().StringVar(&opts.normalize, "normalize", "", "Text normalization: auto|on|off (numbers/units/URLs; when set)")
 	cmd.Flags().StringVar(&opts.lang, "lang", "", "Language code (2-letter ISO 639-1; influences normalization; when set)")
 	cmd.Flags().BoolVar(&opts.metrics, "metrics", false, "Print request metrics to stderr (chars, bytes, duration, etc.)")
+	cmd.Flags().StringVar(&opts.player, "player", "auto", "Audio backend: auto (afplay on macOS, oto elsewhere), afplay, oto (SAG_PLAYER)")
 	cmd.Flags().StringVarP(&opts.inputFile, "input-file", "f", "", "Read text from file (use '-' for stdin), matching macOS say -f")
 	cmd.Flags().Bool("progress", false, "Accepted for macOS say compatibility (no-op)")
 	cmd.Flags().String("network-send", "", "Accepted for macOS say compatibility (not implemented)")

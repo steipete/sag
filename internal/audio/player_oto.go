@@ -22,8 +22,8 @@ var (
 	audioContextErr error
 )
 
-// StreamToSpeakers decodes MP3 audio from the reader and plays it to the default output device.
-func StreamToSpeakers(ctx context.Context, r io.Reader) error {
+// StreamViaOto decodes MP3 audio from the reader and plays it via the oto backend (CoreAudio/ALSA/etc.).
+func StreamViaOto(ctx context.Context, r io.Reader) error {
 	decoder, err := mp3.NewDecoder(r)
 	if err != nil {
 		return fmt.Errorf("decode mp3: %w", err)
