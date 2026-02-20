@@ -535,6 +535,8 @@ func inferFormatFromExt(path string) string {
 		return "mp3_44100_128"
 	case ".wav", ".wave":
 		return "pcm_44100"
+	case ".ogg", ".opus":
+		return "opus_48000_64"
 	default:
 		return ""
 	}

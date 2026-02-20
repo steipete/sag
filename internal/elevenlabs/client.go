@@ -213,11 +213,15 @@ func (c *Client) StreamTTS(ctx context.Context, voiceID string, payload TTSReque
 		return nil, err
 	}
 	u.Path = path.Join(u.Path, "/v1/text-to-speech", voiceID, "stream")
+	q := u.Query()
 	if latency > 0 {
-		q := u.Query()
 		q.Set("optimize_streaming_latency", fmt.Sprint(latency))
-		u.RawQuery = q.Encode()
 	}
+	if payload.OutputFormat != "" {
+		q.Set("output_format", payload.OutputFormat)
+		payload.OutputFormat = "" // don't send in body
+	}
+	u.RawQuery = q.Encode()
 
 	bodyBytes, err := json.Marshal(payload)
 	if err != nil {
@@ -229,7 +233,7 @@ func (c *Client) StreamTTS(ctx context.Context, voiceID string, payload TTSReque
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "audio/mpeg")
+	req.Header.Set("Accept", "*/*")
 	req.Header.Set("xi-api-key", c.apiKey)
 
 	resp, err := c.httpClient.Do(req)
@@ -253,6 +257,12 @@ func (c *Client) ConvertTTS(ctx context.Context, voiceID string, payload TTSRequ
 		return nil, err
 	}
 	u.Path = path.Join(u.Path, "/v1/text-to-speech", voiceID)
+	q := u.Query()
+	if payload.OutputFormat != "" {
+		q.Set("output_format", payload.OutputFormat)
+		payload.OutputFormat = ""
+	}
+	u.RawQuery = q.Encode()
 
 	bodyBytes, err := json.Marshal(payload)
 	if err != nil {
@@ -264,7 +274,7 @@ func (c *Client) ConvertTTS(ctx context.Context, voiceID string, payload TTSRequ
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "audio/mpeg")
+	req.Header.Set("Accept", "*/*")
 	req.Header.Set("xi-api-key", c.apiKey)
 
 	resp, err := c.httpClient.Do(req)
