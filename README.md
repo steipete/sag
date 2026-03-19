@@ -109,6 +109,27 @@ Notes:
 - `--normalize on` may not be available for v2.5 Turbo/Flash (higher latency); prefer `auto`/`off` if it errors.
 - Source of truth: ElevenLabs “Models” docs.
 
+## Timeout considerations (for agents and scripts)
+
+Audio generation time scales roughly with text length. Approximate wall-clock times for `eleven_v3` (the slowest/highest-quality model):
+
+| Text length | Audio duration | Generation time |
+|---|---|---|
+| < 500 chars | ~30s | ~15-20s |
+| 500-1500 chars | 30-90s | ~30-60s |
+| 1500-5000 chars | 90s-5min | ~60-120s |
+
+When calling `sag` from an agent or script with `--no-play -o file.mp3`:
+- Set your exec/process timeout to at least **2x** the expected generation time.
+- For any text over ~500 characters, use a minimum timeout of **120 seconds**.
+- If the process is killed mid-stream (e.g. SIGTERM), the output file will exist but be **truncated** — it's a valid mp3 that plays fine, just cut short. There's no error or warning, making this easy to miss.
+- `eleven_flash_v2_5` and `eleven_turbo_v2_5` are significantly faster if latency matters more than quality.
+
+Verify actual audio duration with:
+```bash
+ffprobe -v quiet -show_entries format=duration -of csv=p=0 output.mp3
+```
+
 ## Development
 - With pnpm:
   - `pnpm format`
