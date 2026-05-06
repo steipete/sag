@@ -107,8 +107,8 @@ func TestStreamTTS(t *testing.T) {
 		if !strings.Contains(r.URL.Path, "/v1/text-to-speech/voice123/stream") {
 			t.Fatalf("unexpected path: %s", r.URL.Path)
 		}
-		if r.Header.Get("Accept") != "audio/mpeg" {
-			t.Fatalf("missing Accept header")
+		if r.Header.Get("Accept") != "*/*" {
+			t.Fatalf("unexpected Accept header: %q", r.Header.Get("Accept"))
 		}
 		_, _ = w.Write([]byte("audio-data"))
 	}))
@@ -135,9 +135,16 @@ func TestStreamTTS_PayloadFields(t *testing.T) {
 	seed := uint32(0)
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.URL.Query().Get("output_format"); got != "mp3_44100_128" {
+			t.Fatalf("expected output_format query mp3_44100_128, got %q", got)
+		}
+
 		var got map[string]any
 		if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
 			t.Fatalf("decode body: %v", err)
+		}
+		if _, ok := got["output_format"]; ok {
+			t.Fatalf("expected output_format to be omitted from body, got %v", got["output_format"])
 		}
 
 		if got["seed"] != float64(0) {
@@ -213,6 +220,9 @@ func TestConvertTTS(t *testing.T) {
 		if path.Base(r.URL.Path) != "voice123" {
 			t.Fatalf("unexpected path: %s", r.URL.Path)
 		}
+		if r.Header.Get("Accept") != "*/*" {
+			t.Fatalf("unexpected Accept header: %q", r.Header.Get("Accept"))
+		}
 		_, _ = w.Write([]byte("full-audio"))
 	}))
 	defer srv.Close()
@@ -223,6 +233,37 @@ func TestConvertTTS(t *testing.T) {
 		t.Fatalf("ConvertTTS error: %v", err)
 	}
 	if string(data) != "full-audio" {
+		t.Fatalf("unexpected data: %q", string(data))
+	}
+}
+
+func TestConvertTTS_OutputFormatQuery(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.URL.Query().Get("output_format"); got != "opus_48000_64" {
+			t.Fatalf("expected output_format query opus_48000_64, got %q", got)
+		}
+
+		var got map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
+			t.Fatalf("decode body: %v", err)
+		}
+		if _, ok := got["output_format"]; ok {
+			t.Fatalf("expected output_format to be omitted from body, got %v", got["output_format"])
+		}
+
+		_, _ = w.Write([]byte("opus-audio"))
+	}))
+	defer srv.Close()
+
+	c := NewClient("key", srv.URL)
+	data, err := c.ConvertTTS(context.Background(), "voice123", TTSRequest{
+		Text:         "hello",
+		OutputFormat: "opus_48000_64",
+	})
+	if err != nil {
+		t.Fatalf("ConvertTTS error: %v", err)
+	}
+	if string(data) != "opus-audio" {
 		t.Fatalf("unexpected data: %q", string(data))
 	}
 }

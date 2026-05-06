@@ -22,6 +22,9 @@ func TestSpeakCommand_FlagsBuildRequestAndMetrics(t *testing.T) {
 		if path.Base(r.URL.Path) != voiceID {
 			t.Fatalf("expected voice ID %q, got %q", voiceID, path.Base(r.URL.Path))
 		}
+		if got := r.URL.Query().Get("output_format"); got != "mp3_44100_128" {
+			t.Fatalf("expected output_format query mp3_44100_128, got %q", got)
+		}
 
 		var got map[string]any
 		if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
@@ -31,8 +34,8 @@ func TestSpeakCommand_FlagsBuildRequestAndMetrics(t *testing.T) {
 		if got["model_id"] != "eleven_v3" {
 			t.Fatalf("expected model_id eleven_v3, got %v", got["model_id"])
 		}
-		if got["output_format"] != "mp3_44100_128" {
-			t.Fatalf("expected output_format mp3_44100_128, got %v", got["output_format"])
+		if _, ok := got["output_format"]; ok {
+			t.Fatalf("expected output_format to be omitted from body, got %v", got["output_format"])
 		}
 		if got["seed"] != float64(42) {
 			t.Fatalf("expected seed 42, got %v", got["seed"])

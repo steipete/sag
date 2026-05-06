@@ -4,6 +4,8 @@
 ### Added
 - Voice discovery: semantic `--query` over name/description/labels, repeatable `--label` filters, preview playback via `--try`, metadata caching, and server-side name search when supported.
 - Bare `sag` now reads piped stdin like macOS `say`, so `echo "hello" | sag` speaks the text without requiring the `speak` subcommand. (#14, thanks @atdrendel)
+### Fixed
+- `--format` and `.ogg`/`.opus` output paths now request native ElevenLabs Opus output instead of always receiving MP3. (#16, thanks @derspotter)
 
 ## 0.2.2 - 2026-01-24
 ### Fixed

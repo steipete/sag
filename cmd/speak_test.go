@@ -22,6 +22,8 @@ func TestInferFormatFromExt(t *testing.T) {
 		{"out.MP3", "mp3_44100_128"},
 		{"audio.wav", "pcm_44100"},
 		{"audio.WAVE", "pcm_44100"},
+		{"voice.ogg", "opus_48000_64"},
+		{"voice.OPUS", "opus_48000_64"},
 		{"audio.unknown", ""},
 	}
 	for _, tt := range tests {
