@@ -16,6 +16,11 @@ permissions:
 jobs:
   build-macos:
     runs-on: macos-latest
+    env:
+      MACOSX_DEPLOYMENT_TARGET: '15.0'
+      # Explicit flags also make the deployment target part of Go's cgo cache key.
+      CGO_CFLAGS: '-O2 -g -mmacosx-version-min=15.0'
+      CGO_LDFLAGS: '-O2 -g -mmacosx-version-min=15.0'
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -23,7 +28,7 @@ jobs:
           ref: ${{ inputs.tag || github.ref }}
 
       - name: Setup Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         with:
           go-version: "1.25.x"
           check-latest: true
@@ -39,6 +44,14 @@ jobs:
 
           CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 go build -o dist/build/sag-darwin-arm64 ./cmd/sag
           CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 go build -o dist/build/sag-darwin-amd64 ./cmd/sag
+
+          for arch in arm64 amd64; do
+            minimum="$(xcrun vtool -show-build "dist/build/sag-darwin-$arch" | awk '$1 == "minos" { print $2 }')"
+            if [[ "$minimum" != "$MACOSX_DEPLOYMENT_TARGET" ]]; then
+              echo "Unexpected macOS minimum for $arch: $minimum" >&2
+              exit 1
+            fi
+          done
 
           lipo -create -output dist/build/sag dist/build/sag-darwin-arm64 dist/build/sag-darwin-amd64
 
@@ -81,7 +94,7 @@ jobs:
           ref: ${{ inputs.tag || github.ref }}
 
       - name: Setup Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         with:
           go-version: "1.25.x"
           check-latest: true
@@ -122,7 +135,7 @@ jobs:
           ref: ${{ inputs.tag || github.ref }}
 
       - name: Setup Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         with:
           go-version: "1.25.x"
           check-latest: true

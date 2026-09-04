@@ -14,6 +14,7 @@ Follow these steps for each release. Title GitHub releases as `sag <version>`.
 - Run the gates: `pnpm format && pnpm lint && pnpm test && pnpm build`.
 - Commit the release changes, then create an annotated tag: `git tag -a v<version> -m "Release <version>"`.
 - Push `main` and the tag. The `Release Binaries` workflow builds macOS arm64/amd64/universal, Linux arm64/amd64, and Windows amd64 archives, verifies their checksums, attaches them to the GitHub release, dispatches the Homebrew tap update, and waits for that workflow.
+- Keep the macOS deployment target and cgo compiler/linker flags pinned to macOS 15.0, matching the existing released minimum. The workflow verifies both architecture slices with `xcrun vtool -show-build` before packaging.
 - Watch the exact tag workflow through completion. Repair or rerun failures before continuing.
 - Verify the GitHub release:
   - title is `sag <version>`

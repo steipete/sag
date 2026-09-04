@@ -4,6 +4,10 @@
 
 ### Fixed
 - Source-install documentation now requires Go 1.25+, matching `go.mod`.
+- macOS release builds now explicitly retain the existing macOS 15 minimum when the build runner or SDK changes.
+
+### Changed
+- Updated Oto to 3.4.1 and purego to 0.11.0 for upstream platform and FFI fixes; refreshed Go/Node setup and lint tooling while retaining Go 1.25+ support. CI now also verifies the docs build.
 
 ## 0.4.1 - 2026-07-01
 
