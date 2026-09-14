@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+set -euo pipefail
+version=${1:?usage: update-homebrew <version>}
+[[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || exit 2
+tag="v$version"
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
+
+# The upstream release job has already bound these public bytes to both verifiers.
+gh release download "$tag" --repo steipete/sag --dir "$work"
+(cd "$work" && sha256sum --check SHA256SUMS)
+commit=$(git rev-parse "refs/tags/$tag^{commit}")
+jq -e --arg tag "$tag" --arg commit "$commit" \
+  '.schemaVersion == 1 and .repository == "steipete/sag" and .tag == $tag and .commit == $commit' \
+  "$work/ASSET-INVENTORY.json" >/dev/null
+jq -ce '
+  [.payloads[] | select(.target == "darwin_arm64" or .target == "darwin_amd64" or .target == "linux_arm64" or .target == "linux_amd64")]
+  | if length == 4 and (map(.target) | unique | length) == 4
+       and all(.[]; (.name | test("^[A-Za-z0-9][A-Za-z0-9._-]*\\.tar\\.gz$")) and (.sha256 | test("^[a-f0-9]{64}$")))
+    then map({key: .target, value: {name, sha256}}) | from_entries
+    else error("release must contain exactly four safe Homebrew targets") end
+' "$work/ASSET-INVENTORY.json" > "$work/assets.json"
+jq -r 'to_entries[] | "\(.value.sha256)  \(.value.name)"' "$work/assets.json" > "$work/tap-checksums"
+(cd "$work" && sha256sum --check tap-checksums)
+
+request_id="sag-${tag}-${GITHUB_RUN_ID:?}-${GITHUB_RUN_ATTEMPT:?}"
+gh workflow run update-formula.yml --repo steipete/homebrew-tap \
+  -f formula=sag -f tag="$tag" -f repository=steipete/sag \
+  -f assets="$(cat "$work/assets.json")" -f request_id="$request_id"
+run_id=
+for _ in {1..30}; do
+  run_id=$(gh run list --repo steipete/homebrew-tap --workflow update-formula.yml \
+    --json databaseId,displayTitle --jq ".[] | select(.displayTitle | contains(\"$request_id\")) | .databaseId")
+  [[ -z "$run_id" ]] || break
+  sleep 5
+done
+[[ "$run_id" =~ ^[0-9]+$ ]] || { echo "Missing or ambiguous tap run" >&2; exit 1; }
+timeout 15m gh run watch "$run_id" --repo steipete/homebrew-tap --exit-status
+gh api repos/steipete/homebrew-tap/contents/Formula/sag.rb --jq .content | base64 --decode > "$work/sag.rb"
+python3 scripts/verify-homebrew.py "$tag" "$work/assets.json" "$work/sag.rb"

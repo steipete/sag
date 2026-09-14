@@ -5,7 +5,7 @@ description: "Install sag via Homebrew, prebuilt release binaries, or `go instal
 
 # Install
 
-`sag` ships as a single static binary. Pick the path that matches your platform.
+`sag` ships as a single executable. Pick the path that matches your platform.
 
 ## Homebrew (macOS, Linux)
 
@@ -22,13 +22,19 @@ brew update && brew upgrade steipete/tap/sag
 
 ## Prebuilt release binaries
 
-Each tagged release publishes archives for macOS (amd64/arm64), Linux (amd64/arm64), and Windows (amd64). Browse <https://github.com/steipete/sag/releases/latest>, download the matching archive, extract, and put `sag` on your `PATH` (e.g. `/usr/local/bin`).
+Each release publishes archives for macOS (amd64/arm64/universal), Linux (amd64/arm64), and Windows (amd64). Browse <https://github.com/steipete/sag/releases/latest>, download the matching archive, extract, and put `sag` on your `PATH` (e.g. `/usr/local/bin`).
+
+macOS archives require macOS 15 or later. Their executables are Developer ID signed by Peter Steinberger (team `Y5PE65HELJ`) and notarized by Apple, so direct downloads pass Gatekeeper. Choose `darwin_arm64` for Apple Silicon, `darwin_amd64` for Intel, or `universal_darwin_all` for both.
+
+Archive names include the version: `sag_<version>_<os>_<arch>.tar.gz` (Windows uses `.zip`). Download the matching archive and `SHA256SUMS` from the same release, then verify before extracting. Substitute the release version below:
 
 ```bash
-curl -L https://github.com/steipete/sag/releases/latest/download/sag_linux_amd64.tar.gz \
-  | tar -xz -C /tmp
-sudo install -m 0755 /tmp/sag /usr/local/bin/sag
+shasum -a 256 --check --ignore-missing SHA256SUMS
+tar -xzf sag_<version>_darwin_arm64.tar.gz
+./sag --version
 ```
+
+Starting with 0.4.3, `SHA256SUMS` replaces the versioned checksum manifest and per-archive `.sha256` files; the universal archive is named `sag_<version>_universal_darwin_all.tar.gz`. Architecture-specific archive names are unchanged.
 
 ## Go toolchain
 
@@ -36,7 +42,7 @@ sudo install -m 0755 /tmp/sag /usr/local/bin/sag
 go install github.com/steipete/sag/cmd/sag@latest
 ```
 
-Requires the Go version declared in `go.mod` (1.25+). Source builds bake the Git description into the version string.
+Requires the Go version declared in `go.mod` (1.25+). Source builds use the version recorded in the source.
 
 ## From source
 
@@ -55,7 +61,7 @@ The cross-platform `oto` audio backend needs ALSA development headers when build
 sudo apt install build-essential pkg-config libasound2-dev
 ```
 
-Released Linux binaries already include the audio backend; this step is only required when you compile yourself.
+Released Linux binaries need the ALSA runtime library (`libasound2t64` on Ubuntu 24.04, or `libasound2` on older Debian/Ubuntu). Development headers are only required when you compile yourself.
 
 ## Verify the install
 

@@ -10,6 +10,7 @@ brew install steipete/tap/sag  # auto-taps steipete/tap
 
 Prebuilt binaries:
 - Download Linux, macOS, and Windows archives from the [latest GitHub release](https://github.com/steipete/sag/releases/latest).
+- macOS downloads require macOS 15 or later and are Developer ID signed and notarized by Peter Steinberger, so direct downloads pass Gatekeeper.
 - On Linux, unpack the `linux_amd64` archive and place `sag` somewhere on your `PATH`, for example `/usr/local/bin`.
 
 Go toolchain:

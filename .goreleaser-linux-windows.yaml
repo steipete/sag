@@ -1,0 +1,50 @@
+version: 2
+project_name: sag
+
+before:
+  hooks:
+    - ./scripts/check-release-metadata
+    - ./scripts/install-linux-release-deps
+
+builds:
+  - id: sag-linux-amd64
+    main: ./cmd/sag
+    binary: sag
+    flags: [-trimpath]
+    ldflags: [-s -w]
+    env:
+      - CGO_ENABLED=1
+      - CC=gcc
+      - PKG_CONFIG_LIBDIR=/usr/lib/x86_64-linux-gnu/pkgconfig
+    targets: [linux_amd64]
+  - id: sag-linux-arm64
+    main: ./cmd/sag
+    binary: sag
+    flags: [-trimpath]
+    ldflags: [-s -w]
+    env:
+      - CGO_ENABLED=1
+      - CC=aarch64-linux-gnu-gcc
+      - PKG_CONFIG_LIBDIR=/usr/lib/aarch64-linux-gnu/pkgconfig
+    targets: [linux_arm64]
+  - id: sag-windows
+    main: ./cmd/sag
+    binary: sag
+    flags: [-trimpath]
+    ldflags: [-s -w]
+    env: [CGO_ENABLED=0]
+    targets: [windows_amd64]
+
+archives:
+  - ids: [sag-linux-amd64, sag-linux-arm64, sag-windows]
+    formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files: [README.md, LICENSE]
+
+checksum:
+  name_template: SHA256SUMS
+changelog:
+  disable: true

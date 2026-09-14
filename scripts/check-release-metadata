@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+package_version=$(sed -n 's/^  "version": "\([^"]*\)",/\1/p' package.json)
+cli_version=$(sed -n 's/^[[:space:]]*Version: "\([^"]*\)",/\1/p' cmd/root.go)
+changelog_version=$(awk '/^## [0-9]+\.[0-9]+\.[0-9]+ - [0-9]/ { print $2; exit }' CHANGELOG.md)
+[[ -n "$package_version" && "$cli_version" == "$package_version" && "$changelog_version" == "$package_version" ]] || {
+  echo "CLI, package.json, and latest dated changelog versions must match" >&2
+  exit 1
+}
+if [[ -n "${GORELEASER_CURRENT_TAG:-}" && "${GORELEASER_CURRENT_TAG#v}" != "$package_version" ]]; then
+  echo "Release tag does not match source version $package_version" >&2
+  exit 1
+fi
+echo "Release metadata matches v$package_version"

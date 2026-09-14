@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ $# != 1 ]]; then
+  echo "usage: $0 <Mach-O binary>" >&2
+  exit 2
+fi
+expected=15.0
+minimums=$(otool -l "$1" | awk '
+  $1 == "cmd" { build = ($2 == "LC_BUILD_VERSION") }
+  build && $1 == "minos" { print $2 }
+')
+[[ -n "$minimums" ]] || { echo "No LC_BUILD_VERSION minimum in $1" >&2; exit 1; }
+while IFS= read -r minimum; do
+  [[ "$minimum" == "$expected" ]] || {
+    echo "Unexpected macOS minimum in $1: $minimum (expected $expected)" >&2
+    exit 1
+  }
+done <<<"$minimums"
+echo "$1: macOS minimum $expected verified"

@@ -1,30 +1,24 @@
 # sag Homebrew Release Playbook
 
-The `Release Binaries` workflow updates `steipete/homebrew-tap` after it uploads and verifies release assets. Do not edit the tap formula as a normal release step.
+The `Release (unified)` workflow updates `steipete/homebrew-tap` after independent macOS verification and publication. Do not edit release URLs or checksums manually as a normal release step.
 
 ## Normal flow
 
-1. Push the annotated `vX.Y.Z` tag after the release commit is on `main`.
-2. Watch `Release Binaries` through its `update-homebrew-tap` job.
-3. Confirm the dispatched `Update Formula` run succeeds in `steipete/homebrew-tap`.
-4. Inspect `Formula/sag.rb`: its versioned artifact URLs and SHA-256 values must match the GitHub release assets and checksum manifest.
-5. Sanity-check install from tap:
+1. Follow [Releasing sag](RELEASING.md) and dispatch `release-unified.yml` from `main` with `version=X.Y.Z`.
+2. Watch the caller’s `homebrew` job after the shared release finishes. It passes the exact four verified architecture-specific archive names and SHA-256 values to `steipete/homebrew-tap`’s `update-formula.yml`.
+3. Confirm the tap run succeeds. The caller also checks the resulting `Formula/sag.rb` against the verified inventory; dispatch success alone is insufficient.
+4. Verify installation:
 
-```sh
-brew update
-brew reinstall steipete/tap/sag
-brew test steipete/tap/sag
-sag --version
-```
+   ```sh
+   brew update
+   brew upgrade steipete/tap/sag
+   brew test steipete/tap/sag
+   sag --version
+   codesign --verify --strict --check-notarization -R=notarized "$(brew --prefix sag)/bin/sag"
+   ```
 
-The dispatch must pass the tagged source archive as `linux_url`: Linux ARM installs build from source, and the tap updater refreshes that checksum only when this input is explicit. Verify it as well as the binary archive checksums.
+The formula selects native binaries for both macOS and Linux architectures. Linux ARM no longer builds from the tagged source archive. Keep the Linux ALSA runtime dependency and `skip_clean "bin/sag"` so Homebrew preserves the signed executable. Its platform/CPU branches must use literal release URLs and hashes, as required by the caller’s handoff verifier. The caller owns this stage because the v1.9.0 shared parser rejects OS-specific dependencies.
 
 ## Recovery
 
-If the release assets exist but the tap update failed, fix the release workflow or tap workflow and rerun `Release Binaries` for the existing tag:
-
-```sh
-gh workflow run release-binaries.yml --repo steipete/sag -f tag=vX.Y.Z
-```
-
-The workflow redispatches `update-formula.yml` with the repository, tag, artifact template, and a unique request ID, then waits for the matching tap run. Verify the rerun and formula before installing. Manual formula edits are a last-resort repair and still require checksums from the exact published assets.
+Fix the cause, then rerun the failed jobs in the exact release run. The shared workflow pins retries to the existing annotated tag; the caller downloads and verifies the published inventory before continuing a handoff. Never overwrite a tag or replace published assets. A missing signing identity normally means a missing or incorrectly mapped signing secret; inspect names and mappings without logging secret values.

@@ -5,6 +5,9 @@ on:
   push:
     branches: [ main, master ]
 
+permissions:
+  contents: read
+
 jobs:
   docs-build:
     runs-on: ubuntu-latest
@@ -16,6 +19,9 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: '24'
+
+      - name: Test release handoff verification
+        run: python3 -B scripts/test-verify-homebrew.py
 
       - name: Build docs site
         run: node scripts/build-docs-site.mjs
@@ -55,3 +61,35 @@ jobs:
 
       - name: Test
         run: go test ./...
+
+  macos-release-build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - uses: goreleaser/goreleaser-action@v7
+        with:
+          distribution: goreleaser
+          version: '~> v2'
+          args: release --snapshot --clean --skip=publish
+
+  linux-release-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - uses: goreleaser/goreleaser-action@v7
+        with:
+          distribution: goreleaser
+          version: '~> v2'
+          args: release --config=.goreleaser-linux-windows.yaml --snapshot --clean --skip=publish
+      - name: Smoke-test Linux amd64 binary
+        run: ./dist/sag-linux-amd64_linux_amd64_v1/sag --version

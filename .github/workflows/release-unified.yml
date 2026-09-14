@@ -1,0 +1,57 @@
+name: Release (unified)
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: SemVer to release (without v)
+        required: true
+        type: string
+
+permissions: {}
+
+jobs:
+  release:
+    permissions:
+      actions: read
+      checks: read
+      contents: write
+      pull-requests: write
+      statuses: read
+    uses: openclaw/release-workflows/.github/workflows/release-go-cli.yml@f613cbfed2b043159c850c353e7facb8c89833b0 # v1.9.0
+    with:
+      version: ${{ inputs.version }}
+      repository-type: personal
+      homebrew-tap: steipete/homebrew-tap
+      # The shared formula parser cannot preserve Linux-only ALSA dependencies.
+      # The dependent job below verifies the exact published inventory instead.
+      build-runner: macos
+      split-goreleaser-config: .goreleaser-linux-windows.yaml
+      nfpm: disabled
+      archive-files: '["README.md","LICENSE"]'
+      checksum-filename: SHA256SUMS
+      strict-checks: true
+      ci-check-events: '["push","pull_request"]'
+    secrets:
+      MACOS_SIGNING_P12: ${{ secrets.MACOS_SIGN_P12 }}
+      MACOS_SIGNING_P12_PASSWORD: ${{ secrets.MACOS_SIGN_P12_PASSWORD }}
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_PRIVATE_KEY_P8: ${{ secrets.ASC_PRIVATE_KEY }}
+
+  homebrew:
+    needs: release
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Update and verify Homebrew formula
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: ./scripts/update-homebrew "$RELEASE_VERSION"

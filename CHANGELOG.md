@@ -3,7 +3,11 @@
 ## 0.4.3 - Unreleased
 
 ### Fixed
-- Homebrew release updates now refresh the Linux ARM source archive checksum together with the binary archive checksums.
+- Release binaries for macOS are now Developer ID signed and notarized, so direct downloads pass Gatekeeper.
+- Homebrew release updates now use verified binary archives and checksums for both macOS and Linux architectures, including Linux ARM.
+
+### Changed
+- Release archives retain their architecture-specific names; the universal macOS archive now uses `sag_<version>_universal_darwin_all.tar.gz`, and `SHA256SUMS` replaces the versioned checksum manifest and per-archive checksum files.
 
 ## 0.4.2 - 2026-09-13
 

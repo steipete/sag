@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Only called on the disposable Ubuntu x86_64 build runner.
+set -euo pipefail
+source /etc/os-release
+[[ "$ID" == ubuntu && "$(uname -m)" == x86_64 ]] || {
+  echo "Linux release builds require Ubuntu x86_64" >&2
+  exit 1
+}
+
+sudo dpkg --add-architecture arm64
+sources=$(mktemp)
+trap 'rm -f "$sources"' EXIT
+cat >"$sources" <<EOF
+deb [arch=amd64 signed-by=/usr/share/keyrings/ubuntu-archive-keyring.gpg] http://archive.ubuntu.com/ubuntu $VERSION_CODENAME main universe
+deb [arch=amd64 signed-by=/usr/share/keyrings/ubuntu-archive-keyring.gpg] http://archive.ubuntu.com/ubuntu $VERSION_CODENAME-updates main universe
+deb [arch=amd64 signed-by=/usr/share/keyrings/ubuntu-archive-keyring.gpg] http://security.ubuntu.com/ubuntu $VERSION_CODENAME-security main universe
+deb [arch=arm64 signed-by=/usr/share/keyrings/ubuntu-archive-keyring.gpg] http://ports.ubuntu.com/ubuntu-ports $VERSION_CODENAME main universe
+deb [arch=arm64 signed-by=/usr/share/keyrings/ubuntu-archive-keyring.gpg] http://ports.ubuntu.com/ubuntu-ports $VERSION_CODENAME-updates main universe
+deb [arch=arm64 signed-by=/usr/share/keyrings/ubuntu-archive-keyring.gpg] http://ports.ubuntu.com/ubuntu-ports $VERSION_CODENAME-security main universe
+EOF
+apt_options=(-o "Dir::Etc::sourcelist=$sources" -o "Dir::Etc::sourceparts=-")
+sudo apt-get "${apt_options[@]}" update
+sudo apt-get "${apt_options[@]}" install -y --no-install-recommends \
+  gcc gcc-aarch64-linux-gnu libc6-dev-arm64-cross pkg-config \
+  libasound2-dev:amd64 libasound2-dev:arm64
