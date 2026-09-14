@@ -16,7 +16,8 @@ builds:
       - CGO_ENABLED=1
       - CC=gcc
       - PKG_CONFIG_LIBDIR=/usr/lib/x86_64-linux-gnu/pkgconfig
-    targets: [linux_amd64]
+    goos: [linux]
+    goarch: [amd64]
   - id: sag-linux-arm64
     main: ./cmd/sag
     binary: sag
@@ -26,14 +27,16 @@ builds:
       - CGO_ENABLED=1
       - CC=aarch64-linux-gnu-gcc
       - PKG_CONFIG_LIBDIR=/usr/lib/aarch64-linux-gnu/pkgconfig
-    targets: [linux_arm64]
+    goos: [linux]
+    goarch: [arm64]
   - id: sag-windows
     main: ./cmd/sag
     binary: sag
     flags: [-trimpath]
     ldflags: [-s -w]
     env: [CGO_ENABLED=0]
-    targets: [windows_amd64]
+    goos: [windows]
+    goarch: [amd64]
 
 archives:
   - ids: [sag-linux-amd64, sag-linux-arm64, sag-windows]
