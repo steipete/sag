@@ -1,6 +1,10 @@
 # Changelog
 
-## 0.4.3 - Unreleased
+## 0.4.3 - 2026-09-14
+
+### Highlights
+- macOS downloads are signed and notarized.
+- Homebrew installs verified native archives on Apple Silicon, Intel, and both Linux architectures.
 
 ### Fixed
 - Release binaries for macOS are now Developer ID signed and notarized, so direct downloads pass Gatekeeper.
