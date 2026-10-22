@@ -581,12 +581,18 @@ func streamAndPlay(ctx context.Context, opts speakOptions, stream func(context.C
 		}()
 
 		playErr := player(ctx, pr)
+		// Closing the read end unblocks a copy that is still filling the pipe
+		// after the player stopped.
+		_ = pr.Close()
 		copyNVal := <-copyN
 		copyErrVal := <-copyErr
-		if copyErrVal != nil {
+		if playErr != nil {
+			return copyNVal, playErr
+		}
+		if copyErrVal != nil && !errors.Is(copyErrVal, io.ErrClosedPipe) {
 			return copyNVal, copyErrVal
 		}
-		return copyNVal, playErr
+		return copyNVal, nil
 	}
 
 	mw := io.MultiWriter(writers...)

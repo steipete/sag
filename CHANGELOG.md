@@ -2,6 +2,9 @@
 
 ## 0.4.5 - Unreleased
 
+### Fixed
+- Return from streamed playback when the player stops before the audio body is consumed, instead of waiting on a full pipe.
+
 ## 0.4.4 - 2026-10-20
 
 ### Highlights
