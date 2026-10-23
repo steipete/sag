@@ -68,8 +68,8 @@ func TestStreamAndPlayStopsCopyWithPlayer(t *testing.T) {
 			case <-time.After(2 * time.Second):
 				_ = source.Close()
 				_ = playbackReader.(io.Closer).Close()
-				_ = <-done
-				t.Fatal("copy did not stop after the player returned")
+				cleanupErr := <-done
+				t.Fatalf("copy did not stop after the player returned (cleanup error: %v)", cleanupErr)
 			}
 		})
 	}
