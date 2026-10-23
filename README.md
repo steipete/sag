@@ -52,7 +52,7 @@ ElevenLabs-only speak flags fail fast on 60db: `--model-id`, `--style`, `--speak
 
 Features:
 - macOS `say`-style default: `sag "Hello"` routes to `speak` automatically.
-- Streaming playback to speakers with optional file output.
+- Streaming playback to speakers with optional file output. Playback failures promptly stop the upstream stream and return an error.
 - Voice discovery via `sag voices` and `-v ?`.
 - Speed/rate controls, latency tiers, and format inference from output extension.
 - Model selection via `--model-id` (defaults to `eleven_v3`; use `eleven_multilingual_v2` for a stable baseline).

@@ -3,7 +3,7 @@
 ## 0.4.5 - Unreleased
 
 ### Fixed
-- Return from streamed playback when the player stops before the audio body is consumed, instead of waiting on a full pipe.
+- Stop upstream reads and pipe writes when streamed playback ends early, return player failures, reject interrupted output saves, and preserve provider read errors. Thanks @SebTardif (#35).
 
 ## 0.4.4 - 2026-10-20
 

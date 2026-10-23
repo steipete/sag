@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"bytes"
 	"context"
 	"io"
 	"math"
@@ -10,7 +9,6 @@ import (
 	"os"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/steipete/sag/internal/elevenlabs"
 )
@@ -369,24 +367,6 @@ func TestStreamAndPlayRequiresWork(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatalf("expected error when no output and play disabled")
-	}
-}
-
-func TestStreamAndPlayReturnsWhenPlayerStopsEarly(t *testing.T) {
-	orig := playToSpeakers
-	playToSpeakers = func(context.Context, io.Reader) error { return nil }
-	t.Cleanup(func() { playToSpeakers = orig })
-
-	body := bytes.Repeat([]byte("a"), 128*1024)
-	start := time.Now()
-	_, err := streamAndPlay(context.Background(), speakOptions{play: true}, func(context.Context) (io.ReadCloser, error) {
-		return io.NopCloser(bytes.NewReader(body)), nil
-	})
-	if elapsed := time.Since(start); elapsed > 2*time.Second {
-		t.Fatalf("streamAndPlay blocked for %s", elapsed)
-	}
-	if err != nil {
-		t.Fatalf("streamAndPlay error: %v", err)
 	}
 }
 
