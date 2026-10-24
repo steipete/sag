@@ -24,3 +24,7 @@ pnpm-lock.yaml
 .DS_Store
 .idea/
 .vscode/
+
+# gooze mutation testing
+.gooze-reports
+.gooze.log*
