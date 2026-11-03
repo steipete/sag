@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -641,12 +642,7 @@ func convertAndPlay(ctx context.Context, opts speakOptions, convert func(context
 		if err != nil {
 			return n, err
 		}
-		pr, pw := io.Pipe()
-		go func() {
-			_, _ = pw.Write(data)
-			_ = pw.Close()
-		}()
-		return n, player(ctx, pr)
+		return n, player(ctx, bytes.NewReader(data))
 	}
 	return n, nil
 }

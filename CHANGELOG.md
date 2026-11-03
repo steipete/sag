@@ -6,6 +6,9 @@
 - OpenAI Realtime voice support with `OPENAI_API_KEY` / `OPENAI_API_KEY_FILE`, built-in voice selection, and validated WAV playback/output using `gpt-realtime-2.1-mini` by default.
 - Explicit `--provider` selection for environments with multiple provider credentials; ambient OpenAI keys preserve existing ElevenLabs/60db commands.
 
+### Fixed
+- Avoid a blocked writer when buffered playback fails, honor cancellation while waiting for Oto startup, and report Oto playback errors.
+
 ## 0.4.5 - 2026-10-23
 
 **Highlights:** Streamed playback stops upstream work promptly and preserves player and provider errors.

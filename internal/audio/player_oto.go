@@ -55,8 +55,8 @@ func playPCM(ctx context.Context, pcm io.Reader, sampleRate, channelCount int) e
 	if err != nil {
 		return fmt.Errorf("audio context: %w", err)
 	}
-	if ready != nil {
-		<-ready
+	if err := waitForAudioReady(ctx, ready); err != nil {
+		return err
 	}
 
 	player := audioCtx.NewPlayer(pcm)
@@ -167,13 +167,23 @@ func getAudioContext(sampleRate, channelCount int, format oto.Format) (*oto.Cont
 	return audioCtx, audioReady, nil
 }
 
-func waitForPlayback(ctx context.Context, player *oto.Player) error {
+type playbackState interface {
+	IsPlaying() bool
+	Pause()
+	Err() error
+}
+
+func waitForPlayback(ctx context.Context, player playbackState) error {
 	ticker := time.NewTicker(playbackPollInterval)
 	defer ticker.Stop()
 
 	for {
+		if err := ctx.Err(); err != nil {
+			player.Pause()
+			return err
+		}
 		if !player.IsPlaying() {
-			return nil
+			return player.Err()
 		}
 		select {
 		case <-ctx.Done():
@@ -181,5 +191,20 @@ func waitForPlayback(ctx context.Context, player *oto.Player) error {
 			return ctx.Err()
 		case <-ticker.C:
 		}
+	}
+}
+
+func waitForAudioReady(ctx context.Context, ready <-chan struct{}) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if ready == nil {
+		return nil
+	}
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-ready:
+		return nil
 	}
 }
