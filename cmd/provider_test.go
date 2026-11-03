@@ -9,14 +9,16 @@ import (
 // Setting an env var to "" makes the resolvers treat it as absent.
 func resetProviderEnv(t *testing.T) {
 	t.Helper()
+	cfg.Provider = ""
 	cfg.APIKey = ""
 	cfg.APIKeyFile = ""
 	cfg.BaseURL = ""
-	t.Cleanup(func() { cfg.APIKey = ""; cfg.APIKeyFile = ""; cfg.BaseURL = "" })
+	t.Cleanup(func() { cfg.Provider = ""; cfg.APIKey = ""; cfg.APIKeyFile = ""; cfg.BaseURL = "" })
 	for _, k := range []string{
 		"ELEVENLABS_API_KEY", "SAG_API_KEY",
 		"ELEVENLABS_API_KEY_FILE", "SAG_API_KEY_FILE",
 		"SIXTYDB_API_KEY", "SIXTYDB_API_KEY_FILE",
+		"OPENAI_API_KEY", "OPENAI_API_KEY_FILE",
 	} {
 		t.Setenv(k, "")
 	}

@@ -2,6 +2,10 @@
 
 ## 0.4.6 - Unreleased
 
+### Added
+- OpenAI Realtime voice support with `OPENAI_API_KEY` / `OPENAI_API_KEY_FILE`, built-in voice selection, and validated WAV playback/output using `gpt-realtime-2.1-mini` by default.
+- Explicit `--provider` selection for environments with multiple provider credentials.
+
 ## 0.4.5 - 2026-10-23
 
 **Highlights:** Streamed playback stops upstream work promptly and preserves player and provider errors.

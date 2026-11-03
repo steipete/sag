@@ -5,6 +5,7 @@ go 1.25.0
 toolchain go1.27.3
 
 require (
+	github.com/coder/websocket v1.8.15
 	github.com/ebitengine/oto/v3 v3.4.1
 	github.com/hajimehoshi/go-mp3 v0.3.4
 	github.com/spf13/cobra v1.10.2

@@ -13,6 +13,7 @@ import (
 
 	"github.com/steipete/sag/internal/audio"
 	"github.com/steipete/sag/internal/elevenlabs"
+	"github.com/steipete/sag/internal/openai"
 	"github.com/steipete/sag/internal/sixtydb"
 	"github.com/steipete/sag/internal/tts"
 
@@ -59,7 +60,7 @@ func init() {
 
 	cmd := &cobra.Command{
 		Use:   "speak [text]",
-		Short: "Speak the provided text using ElevenLabs TTS (default: stream to speakers)",
+		Short: "Speak the provided text using the configured TTS provider",
 		Long:  "If no text argument is provided, the command reads from stdin.\n\nTip: run `sag prompting` for model-specific prompting tips and recommended flag combinations.",
 		Args:  cobra.ArbitraryArgs,
 		PreRunE: func(_ *cobra.Command, _ []string) error {
@@ -122,6 +123,12 @@ func init() {
 				}
 			}
 
+			if provider.name == providerOpenAI {
+				if err := prepareOpenAIOptions(cmd, &opts); err != nil {
+					return err
+				}
+			}
+
 			if provider.name == providerSixtyDB {
 				if err := prepareSixtyDBOptions(cmd, &opts); err != nil {
 					return err
@@ -149,6 +156,11 @@ func init() {
 				}
 				convertFunc = func(ctx context.Context) ([]byte, error) {
 					return provider.elevenlabs.ConvertTTS(ctx, opts.voiceID, payload)
+				}
+			case providerOpenAI:
+				payload := openai.TTSRequest{Text: text, ModelID: opts.modelID, VoiceID: opts.voiceID, Speed: opts.speed}
+				convertFunc = func(ctx context.Context) ([]byte, error) {
+					return provider.openai.ConvertTTS(ctx, payload)
 				}
 			case providerSixtyDB:
 				payload, err := buildSixtyDBTTSRequest(cmd, opts, text)
@@ -181,7 +193,7 @@ func init() {
 				}
 			}
 			if opts.metrics {
-				if provider.name == providerElevenLabs {
+				if provider.name == providerElevenLabs || provider.name == providerOpenAI {
 					fmt.Fprintf(os.Stderr, "metrics: chars=%d bytes=%d provider=%s model=%s voice=%s stream=%t latencyTier=%d dur=%s\n",
 						len([]rune(text)), bytes, provider.name, opts.modelID, opts.voiceID, opts.stream, opts.latencyTier, time.Since(start).Truncate(time.Millisecond))
 				} else {
@@ -195,7 +207,7 @@ func init() {
 
 	cmd.Flags().StringVar(&opts.voiceID, "voice-id", "", "Voice ID to use (ELEVENLABS_VOICE_ID)")
 	cmd.Flags().StringVarP(&opts.voiceID, "voice", "v", "", "Alias for --voice-id; accepts name or ID; use '?' to list voices")
-	cmd.Flags().StringVar(&opts.modelID, "model-id", opts.modelID, "Model ID (default: eleven_v3). Common: eleven_multilingual_v2 (stable), eleven_flash_v2_5 (fast/cheap), eleven_turbo_v2_5 (balanced).")
+	cmd.Flags().StringVar(&opts.modelID, "model-id", opts.modelID, "Model ID (OpenAI default: gpt-realtime-2.1-mini; ElevenLabs default: eleven_v3). Common: eleven_multilingual_v2 (stable), eleven_flash_v2_5 (fast/cheap), eleven_turbo_v2_5 (balanced).")
 	cmd.Flags().StringVarP(&opts.outputPath, "output", "o", "", "Write audio to file (disables playback unless --play is also set)")
 	cmd.Flags().StringVar(&opts.outputFmt, "format", opts.outputFmt, "Output format (e.g. mp3_44100_128)")
 	cmd.Flags().BoolVar(&opts.stream, "stream", opts.stream, "Stream audio while generating")

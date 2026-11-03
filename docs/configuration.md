@@ -21,8 +21,10 @@ Required for any TTS or voice call. `sag --help`, `sag prompting`, and `sag --ve
 | ElevenLabs | `SAG_API_KEY_FILE` | Alias. |
 | 60db | `SIXTYDB_API_KEY` | Primary env var. |
 | 60db | `SIXTYDB_API_KEY_FILE` | Read the key from a file. |
+| OpenAI | `OPENAI_API_KEY` | Primary env var; takes precedence over its key file. |
+| OpenAI | `OPENAI_API_KEY_FILE` | Read the key from a file. |
 
-Configure exactly one provider at a time. If both ElevenLabs and 60db credentials are present, `sag` errors instead of guessing.
+Configure exactly one provider, or choose `--provider elevenlabs|60db|openai`. With explicit selection, only the selected provider's key sources are read. The legacy `--api-key` and `--api-key-file` flags remain ElevenLabs-only.
 
 The file form is handy for agents and containers:
 

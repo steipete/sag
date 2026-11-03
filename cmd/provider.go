@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/steipete/sag/internal/elevenlabs"
+	"github.com/steipete/sag/internal/openai"
 	"github.com/steipete/sag/internal/sixtydb"
 	"github.com/steipete/sag/internal/tts"
 )
@@ -13,6 +14,7 @@ import (
 const (
 	providerElevenLabs = "elevenlabs"
 	providerSixtyDB    = "60db"
+	providerOpenAI     = "openai"
 )
 
 type activeProvider struct {
@@ -21,6 +23,7 @@ type activeProvider struct {
 
 	elevenlabs *elevenlabs.Client
 	sixtydb    *sixtydb.Client
+	openai     *openai.Client
 }
 
 // resolveSixtyDBKey resolves the 60db API key from its dedicated env vars.
@@ -48,36 +51,71 @@ func ensureProviderConfigured() error {
 	return err
 }
 
-func selectProvider() (activeProvider, error) {
-	elKey, err := resolveElevenLabsKey()
-	if err != nil {
-		return activeProvider{}, err
+func resolveOpenAIKey() (string, error) {
+	if key := strings.TrimSpace(os.Getenv("OPENAI_API_KEY")); key != "" {
+		return key, nil
 	}
-	sdKey, err := resolveSixtyDBKey()
-	if err != nil {
-		return activeProvider{}, err
+	if path := strings.TrimSpace(os.Getenv("OPENAI_API_KEY_FILE")); path != "" {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return "", fmt.Errorf("read OpenAI api key file: %w", err)
+		}
+		key := strings.TrimSpace(string(data))
+		if key == "" {
+			return "", fmt.Errorf("OpenAI api key file %q is empty", path)
+		}
+		return key, nil
 	}
+	return "", nil
+}
 
-	switch {
-	case elKey != "" && sdKey != "":
-		return activeProvider{}, fmt.Errorf("ambiguous provider configuration: both ElevenLabs and 60db keys are set; unset one provider key and retry")
-	case elKey != "":
-		client := elevenlabs.NewClient(elKey, cfg.BaseURL)
-		return activeProvider{
-			name:       providerElevenLabs,
-			voices:     client,
-			elevenlabs: client,
-		}, nil
-	case sdKey != "":
-		client := sixtydb.NewClient(sdKey, cfg.BaseURL)
-		return activeProvider{
-			name:    providerSixtyDB,
-			voices:  client,
-			sixtydb: client,
-		}, nil
-	default:
-		return activeProvider{}, fmt.Errorf("missing API key (set ELEVENLABS_API_KEY or SIXTYDB_API_KEY)")
+func selectProvider() (activeProvider, error) {
+	selected := strings.ToLower(strings.TrimSpace(cfg.Provider))
+	if selected != "" && selected != providerElevenLabs && selected != providerSixtyDB && selected != providerOpenAI {
+		return activeProvider{}, fmt.Errorf("unknown provider %q (choose elevenlabs, 60db, or openai)", selected)
 	}
+	var active activeProvider
+	for _, candidate := range []struct {
+		name string
+		key  func() (string, error)
+	}{
+		{providerElevenLabs, resolveElevenLabsKey},
+		{providerSixtyDB, resolveSixtyDBKey},
+		{providerOpenAI, resolveOpenAIKey},
+	} {
+		if selected != "" && selected != candidate.name {
+			continue
+		}
+		key, err := candidate.key()
+		if err != nil {
+			return activeProvider{}, err
+		}
+		if key == "" {
+			continue
+		}
+		if active.name != "" {
+			return activeProvider{}, fmt.Errorf("ambiguous provider configuration: multiple provider keys are set; choose --provider elevenlabs, 60db, or openai")
+		}
+		active.name = candidate.name
+		switch candidate.name {
+		case providerElevenLabs:
+			active.elevenlabs = elevenlabs.NewClient(key, cfg.BaseURL)
+			active.voices = active.elevenlabs
+		case providerSixtyDB:
+			active.sixtydb = sixtydb.NewClient(key, cfg.BaseURL)
+			active.voices = active.sixtydb
+		case providerOpenAI:
+			active.openai = openai.NewClient(key, cfg.BaseURL)
+			active.voices = active.openai
+		}
+	}
+	if active.name == "" {
+		if selected != "" {
+			return activeProvider{}, fmt.Errorf("missing API key for %s", selected)
+		}
+		return activeProvider{}, fmt.Errorf("missing API key (set ELEVENLABS_API_KEY, SIXTYDB_API_KEY, or OPENAI_API_KEY)")
+	}
+	return active, nil
 }
 
 var sixtyDBUnsupportedFlags = []string{

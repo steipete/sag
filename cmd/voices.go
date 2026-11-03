@@ -37,7 +37,7 @@ func init() {
 
 	cmd := &cobra.Command{
 		Use:   "voices",
-		Short: "List available ElevenLabs voices",
+		Short: "List voices for the configured TTS provider",
 		PreRunE: func(_ *cobra.Command, _ []string) error {
 			return ensureProviderConfigured()
 		},

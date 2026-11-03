@@ -1,6 +1,6 @@
 # Providers
 
-`sag` supports two HTTP TTS backends. The CLI auto-selects the provider from your configured credentials; there is no `--provider` flag.
+`sag` supports ElevenLabs, 60db, and OpenAI Realtime. The CLI auto-selects a provider when exactly one is configured. Use `--provider elevenlabs|60db|openai` when multiple credentials are present. Explicit selection reads only that provider's key sources.
 
 ## Selecting a provider
 
@@ -8,10 +8,33 @@
 | --- | --- |
 | `ELEVENLABS_API_KEY` / `SAG_API_KEY` or `--api-key` / `--api-key-file` only | ElevenLabs |
 | `SIXTYDB_API_KEY` or `SIXTYDB_API_KEY_FILE` only | 60db |
-| both | error |
-| neither | error |
+| `OPENAI_API_KEY` or `OPENAI_API_KEY_FILE` only | OpenAI |
+| multiple providers | error unless `--provider` selects one |
+| none | error |
 
 Use `--base-url` to override the active provider host.
+
+## OpenAI Realtime
+
+OpenAI connects to `wss://api.openai.com/v1/realtime` with Bearer authentication.
+`--base-url` accepts an HTTP(S) or WS(S) API root including the version path
+(for example `https://api.openai.com/v1`); sag appends `/realtime` and the model query.
+
+- Default model: `gpt-realtime-2.1-mini`; use `--model-id` for another compatible Realtime model.
+- Default voice: `marin`. Also available: `cedar`, `alloy`, `ash`, `ballad`, `coral`, `echo`, `sage`, `shimmer`, and `verse`.
+- `sag voices --provider openai` lists built-in voices locally. There are no preview URLs for `--try`; use `sag --provider openai -v NAME "Sample text"` instead.
+- WAV output only: 24 kHz, mono, signed 16-bit PCM. Sag buffers audio and requires a successful `response.done` before saving or playing. Explicit `--stream` is rejected; the default automatically uses buffered playback.
+- `--speed` and `--rate` accept the shared CLI minimum of 0.5× and OpenAI's maximum of 1.5×.
+- `--stability`, `--similarity`, `--similarity-boost`, `--style`, `--speaker-boost`, `--no-speaker-boost`, `--seed`, `--normalize`, `--lang`, and `--latency-tier` are rejected.
+- `--timeout` / `SAG_TIMEOUT` covers connection and synthesis. Cancellation closes the WebSocket. Per-event and total-audio limits prevent unbounded buffering.
+
+Realtime is a generative model. Sag sends input as text to narrate with instructions
+to read it verbatim, but exact wording is not guaranteed. Disclose that the voice is
+AI-generated to listeners.
+
+The older `/v1/audio/speech` models (`tts-1`, `tts-1-hd`, and `gpt-4o-mini-tts`)
+are not used: OpenAI has [announced their shutdown for January 6, 2027](https://developers.openai.com/api/docs/deprecations#2026-10-01-text-to-speech-models).
+See the official [Realtime conversation contract](https://developers.openai.com/api/docs/guides/realtime-conversations).
 
 ## 60db routes sag uses
 
@@ -25,9 +48,9 @@ The 60db integration is deliberately limited to routes verified against the live
 
 For 60db, `sag` validates error and incomplete markers even on HTTP 200 responses, handles single- and double-encoded chunks used by the live service, rejects malformed or empty audio, and enforces per-chunk, per-frame, and total-audio limits. The adapter also retains support for the documented JSON envelope if the service returns it.
 
-## Flag behavior
+## ElevenLabs and 60db flag behavior
 
-### Supported on both providers
+### Supported on ElevenLabs and 60db
 
 - `-v, --voice`
 - `-r, --rate`
@@ -42,7 +65,7 @@ For 60db, `sag` validates error and incomplete markers even on HTTP 200 response
 
 ### ElevenLabs-only
 
-These flags are passed through to ElevenLabs and rejected on 60db:
+These flags are passed through to ElevenLabs and rejected on 60db (OpenAI also supports `--model-id`):
 
 - `--model-id`
 - `--style`

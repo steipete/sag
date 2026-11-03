@@ -1,4 +1,4 @@
-# sag 🗣️ — “Mac-style speech with ElevenLabs or 60db”
+# sag 🗣️ — “Mac-style speech with ElevenLabs, 60db, or OpenAI”
 
 One-liner TTS that works like `say`: stream to speakers by default, list voices, or save audio files.
 
@@ -26,15 +26,16 @@ sudo apt install build-essential pkg-config libasound2-dev
 
 ## Configuration
 
-`sag` supports two TTS providers and auto-selects one from your configured credentials:
+`sag` supports three TTS providers and auto-selects one from your configured credentials:
 
 - **ElevenLabs** — `ELEVENLABS_API_KEY` (or `--api-key`, or `--api-key-file` / `ELEVENLABS_API_KEY_FILE` / `SAG_API_KEY_FILE`)
+- **OpenAI Realtime** — `OPENAI_API_KEY` (or `OPENAI_API_KEY_FILE`)
 - **60db** (`api.60db.ai`) — `SIXTYDB_API_KEY` (or `SIXTYDB_API_KEY_FILE`)
 
 Selection rules:
 - Only one key set → that provider is used.
-- Both keys set → error; unset one provider key and retry.
-- Neither set → error.
+- Multiple provider keys set → select one with `--provider elevenlabs|60db|openai`, or unset the others.
+- No key set → error.
 
 Optional ElevenLabs defaults: `ELEVENLABS_VOICE_ID` or `SAG_VOICE_ID`. Override the active provider host with `--base-url`.
 
@@ -44,9 +45,26 @@ Optional ElevenLabs defaults: `ELEVENLABS_VOICE_ID` or `SAG_VOICE_ID`. Override 
 - incomplete or malformed provider responses fail instead of producing a truncated file
 - 60db currently supports WAV playback/output only; its live synthesis response is buffered rather than streamed
 
-Shared speak flags that work on both providers include `--voice`, `--speed` / `--rate`, `--stability`, `--similarity`, `--play`, `--output`, `--timeout`, and `--metrics`. On 60db, `--format` accepts only `wav`, and an explicit `--stream` is rejected.
+Shared speak flags that work on ElevenLabs and 60db include `--voice`, `--speed` / `--rate`, `--stability`, `--similarity`, `--play`, `--output`, `--timeout`, and `--metrics`. On 60db, `--format` accepts only `wav`, and an explicit `--stream` is rejected.
 
-ElevenLabs-only speak flags fail fast on 60db: `--model-id`, `--style`, `--speaker-boost` / `--no-speaker-boost`, `--seed`, `--normalize`, `--lang`, and `--latency-tier`. `--stability` / `--similarity` still use the CLI's `0..1` range and are scaled to 60db's documented `0..100` API values. See [docs/providers.md](docs/providers.md) for provider-specific details.
+These ElevenLabs speak flags fail fast on 60db: `--model-id`, `--style`, `--speaker-boost` / `--no-speaker-boost`, `--seed`, `--normalize`, `--lang`, and `--latency-tier`. `--stability` / `--similarity` still use the CLI's `0..1` range and are scaled to 60db's documented `0..100` API values. See [docs/providers.md](docs/providers.md) for provider-specific details.
+
+### OpenAI voices
+
+```sh
+# With OPENAI_API_KEY set:
+sag --provider openai -v marin "Hello world"
+sag --provider openai -o hello.wav "Save a voice note"
+sag voices --provider openai
+```
+
+OpenAI uses the Realtime API with `gpt-realtime-2.1-mini` by default; override it
+with `--model-id`. Output is 24 kHz mono WAV, buffered until the response completes.
+Explicit `--stream`, non-WAV formats, and ElevenLabs voice-tuning flags are rejected.
+`--speed` / `--rate` support 0.5–1.5× speed. Built-in voice listing is local;
+preview URLs are not available. Realtime is generative: sag requests verbatim
+narration, but the model can change wording. Tell listeners the voice is AI-generated.
+See [providers](docs/providers.md) for details.
 
 ## Usage
 
