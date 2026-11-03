@@ -26,15 +26,16 @@ sudo apt install build-essential pkg-config libasound2-dev
 
 ## Configuration
 
-`sag` supports three TTS providers and auto-selects one from your configured credentials:
+`sag` supports three TTS providers:
 
 - **ElevenLabs** — `ELEVENLABS_API_KEY` (or `--api-key`, or `--api-key-file` / `ELEVENLABS_API_KEY_FILE` / `SAG_API_KEY_FILE`)
 - **OpenAI Realtime** — `OPENAI_API_KEY` (or `OPENAI_API_KEY_FILE`)
 - **60db** (`api.60db.ai`) — `SIXTYDB_API_KEY` (or `SIXTYDB_API_KEY_FILE`)
 
 Selection rules:
-- Only one key set → that provider is used.
-- Multiple provider keys set → select one with `--provider elevenlabs|60db|openai`, or unset the others.
+- `--provider elevenlabs|60db|openai` explicitly selects a provider.
+- Otherwise, a configured ElevenLabs or 60db provider is used. Configuring both still requires explicit selection.
+- OpenAI is auto-selected only when neither ElevenLabs nor 60db is configured; ambient OpenAI credentials do not change existing commands.
 - No key set → error.
 
 Optional ElevenLabs defaults: `ELEVENLABS_VOICE_ID` or `SAG_VOICE_ID`. Override the active provider host with `--base-url`.
@@ -59,7 +60,7 @@ sag voices --provider openai
 ```
 
 OpenAI uses the Realtime API with `gpt-realtime-2.1-mini` by default; override it
-with `--model-id`. Output is 24 kHz mono WAV, buffered until the response completes.
+with `--model-id`. Normal-speed requests start without a session-configuration round trip. Output is 24 kHz mono WAV, buffered until the response completes.
 Explicit `--stream`, non-WAV formats, and ElevenLabs voice-tuning flags are rejected.
 `--speed` / `--rate` support 0.5–1.5× speed. Built-in voice listing is local;
 preview URLs are not available. Realtime is generative: sag requests verbatim

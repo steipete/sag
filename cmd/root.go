@@ -21,7 +21,7 @@ var (
 	rootCmd     = &cobra.Command{
 		Use:     "sag",
 		Short:   "🗣️ TTS speech, mac-style ease",
-		Long:    "Command-line TTS with macOS-style playback and voice flags. Call it like macOS 'say': if you skip the subcommand, text args are passed to 'speak' (e.g. `sag \"Hello\"`).\n\nTip: run `sag prompting` for ElevenLabs prompting tips. Configure exactly one of ElevenLabs, 60db, or OpenAI, or select one with --provider.",
+		Long:    "Command-line TTS with macOS-style playback and voice flags. Call it like macOS 'say': if you skip the subcommand, text args are passed to 'speak' (e.g. `sag \"Hello\"`).\n\nTip: run `sag prompting` for ElevenLabs prompting tips. Auto-select ElevenLabs or 60db when configured, otherwise OpenAI. Use --provider to select explicitly.",
 		Example: "  sag \"Hi Peter\"\n  echo 'piped input' | sag\n  sag speak -v Roger --rate 200 \"Faster speech\"\n  sag prompting",
 		Version: "0.4.5",
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {

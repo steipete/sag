@@ -150,6 +150,10 @@ func TestConvertTTSCancellation(t *testing.T) {
 			return
 		}
 		defer func() { _ = conn.CloseNow(); close(disconnected) }()
+		if _, _, err := conn.Read(r.Context()); err != nil {
+			t.Error(err)
+			return
+		}
 		close(connected)
 		_, _, _ = conn.Read(r.Context())
 	}))
@@ -249,7 +253,7 @@ func TestConvertTTSHandshakeError(t *testing.T) {
 	}))
 	defer srv.Close()
 	_, err := NewClient("test-key", srv.URL).ConvertTTS(context.Background(), TTSRequest{Text: "hello", Speed: 1})
-	if err == nil || !strings.Contains(err.Error(), "HTTP 401") || strings.Contains(err.Error(), "test-key") {
+	if err == nil || !strings.Contains(err.Error(), "HTTP 401") || !strings.Contains(err.Error(), "replace the selected OPENAI_API_KEY or OPENAI_API_KEY_FILE") || strings.Contains(err.Error(), "test-key") {
 		t.Fatalf("unexpected handshake error: %v", err)
 	}
 }

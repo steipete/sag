@@ -86,6 +86,10 @@ func selectProvider() (activeProvider, error) {
 		if selected != "" && selected != candidate.name {
 			continue
 		}
+		// An ambient OpenAI key must not change existing ElevenLabs/60db commands.
+		if selected == "" && candidate.name == providerOpenAI && active.name != "" {
+			continue
+		}
 		key, err := candidate.key()
 		if err != nil {
 			return activeProvider{}, err

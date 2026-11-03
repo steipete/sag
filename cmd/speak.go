@@ -67,18 +67,18 @@ func init() {
 			return ensureProviderConfigured()
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := applyRateAndSpeed(&opts); err != nil {
+			provider, err := selectProvider()
+			if err != nil {
+				return err
+			}
+
+			if err := applyRateAndSpeed(&opts, provider.name); err != nil {
 				return err
 			}
 			if err := applyCompatibilityFlags(cmd, &opts); err != nil {
 				return err
 			}
 			if err := applyTimeoutFromEnv(cmd, &opts); err != nil {
-				return err
-			}
-
-			provider, err := selectProvider()
-			if err != nil {
 				return err
 			}
 
@@ -315,16 +315,20 @@ func ttsContext(parent context.Context, timeout time.Duration) (context.Context,
 	return ctx, cancel, nil
 }
 
-func applyRateAndSpeed(opts *speakOptions) error {
+func applyRateAndSpeed(opts *speakOptions, provider string) error {
 	if opts.rateWPM > 0 {
-		// Map macOS `say` rate (words per minute) to ElevenLabs speed multiplier.
 		opts.speed = float64(opts.rateWPM) / float64(defaultWPM)
-		if opts.speed <= 0.5 || opts.speed >= 2.0 {
-			return fmt.Errorf("rate %d wpm maps to speed %.2f, which is outside the allowed 0.5–2.0 range", opts.rateWPM, opts.speed)
+	}
+	if provider == providerOpenAI {
+		if !(opts.speed >= 0.5 && opts.speed <= 1.5) {
+			return errors.New("OpenAI speed must be between 0.5 and 1.5")
 		}
 		return nil
 	}
 	if opts.speed <= 0.5 || opts.speed >= 2.0 {
+		if opts.rateWPM > 0 {
+			return fmt.Errorf("rate %d wpm maps to speed %.2f, which is outside the allowed 0.5–2.0 range", opts.rateWPM, opts.speed)
+		}
 		return errors.New("speed must be between 0.5 and 2.0 (e.g. 1.1 for 10% faster)")
 	}
 	return nil

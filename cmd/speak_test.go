@@ -121,7 +121,7 @@ func TestResolveTextEmptyFile(t *testing.T) {
 
 func TestApplyRateOverridesInvalidSpeed(t *testing.T) {
 	opts := &speakOptions{speed: 0.3, rateWPM: 200}
-	if err := applyRateAndSpeed(opts); err != nil {
+	if err := applyRateAndSpeed(opts, providerElevenLabs); err != nil {
 		t.Fatalf("applyRateAndSpeed error: %v", err)
 	}
 	want := float64(200) / float64(defaultWPM)
@@ -132,7 +132,7 @@ func TestApplyRateOverridesInvalidSpeed(t *testing.T) {
 
 func TestApplyRateAndSpeedInvalidSpeed(t *testing.T) {
 	opts := &speakOptions{speed: 0.3}
-	if err := applyRateAndSpeed(opts); err == nil {
+	if err := applyRateAndSpeed(opts, providerElevenLabs); err == nil {
 		t.Fatalf("expected speed validation error")
 	}
 }

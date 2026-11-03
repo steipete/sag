@@ -24,7 +24,7 @@ Required for any TTS or voice call. `sag --help`, `sag prompting`, and `sag --ve
 | OpenAI | `OPENAI_API_KEY` | Primary env var; takes precedence over its key file. |
 | OpenAI | `OPENAI_API_KEY_FILE` | Read the key from a file. |
 
-Configure exactly one provider, or choose `--provider elevenlabs|60db|openai`. With explicit selection, only the selected provider's key sources are read. The legacy `--api-key` and `--api-key-file` flags remain ElevenLabs-only.
+Choose `--provider elevenlabs|60db|openai` to select explicitly. Automatic selection prefers an existing ElevenLabs or 60db configuration; an ambient OpenAI key does not change it. Configuring both ElevenLabs and 60db is still ambiguous. OpenAI is auto-selected when neither is configured. With explicit selection, only the selected provider's key sources are read. The legacy `--api-key` and `--api-key-file` flags remain ElevenLabs-only.
 
 The file form is handy for agents and containers:
 

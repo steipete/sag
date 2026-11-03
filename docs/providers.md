@@ -1,6 +1,6 @@
 # Providers
 
-`sag` supports ElevenLabs, 60db, and OpenAI Realtime. The CLI auto-selects a provider when exactly one is configured. Use `--provider elevenlabs|60db|openai` when multiple credentials are present. Explicit selection reads only that provider's key sources.
+`sag` supports ElevenLabs, 60db, and OpenAI Realtime. Use `--provider elevenlabs|60db|openai` for explicit selection; only that provider's key sources are read. Automatic selection preserves existing ElevenLabs/60db commands and uses OpenAI only when neither existing provider is configured.
 
 ## Selecting a provider
 
@@ -9,7 +9,9 @@
 | `ELEVENLABS_API_KEY` / `SAG_API_KEY` or `--api-key` / `--api-key-file` only | ElevenLabs |
 | `SIXTYDB_API_KEY` or `SIXTYDB_API_KEY_FILE` only | 60db |
 | `OPENAI_API_KEY` or `OPENAI_API_KEY_FILE` only | OpenAI |
-| multiple providers | error unless `--provider` selects one |
+| ElevenLabs + OpenAI | ElevenLabs (use `--provider openai` to override) |
+| 60db + OpenAI | 60db (use `--provider openai` to override) |
+| ElevenLabs + 60db, with or without OpenAI | error unless `--provider` selects one |
 | none | error |
 
 Use `--base-url` to override the active provider host.
@@ -20,12 +22,14 @@ OpenAI connects to `wss://api.openai.com/v1/realtime` with Bearer authentication
 `--base-url` accepts an HTTP(S) or WS(S) API root including the version path
 (for example `https://api.openai.com/v1`); sag appends `/realtime` and the model query.
 
+- Normal-speed requests configure voice and format directly on `response.create`, avoiding a session-update round trip. Non-default speed waits for the speed configuration acknowledgement. WAV framing reuses the PCM buffer without another full-audio copy.
 - Default model: `gpt-realtime-2.1-mini`; use `--model-id` for another compatible Realtime model.
 - Default voice: `marin`. Also available: `cedar`, `alloy`, `ash`, `ballad`, `coral`, `echo`, `sage`, `shimmer`, and `verse`.
 - `sag voices --provider openai` lists built-in voices locally. There are no preview URLs for `--try`; use `sag --provider openai -v NAME "Sample text"` instead.
 - WAV output only: 24 kHz, mono, signed 16-bit PCM. Sag buffers audio and requires a successful `response.done` before saving or playing. Explicit `--stream` is rejected; the default automatically uses buffered playback.
 - `--speed` and `--rate` accept the shared CLI minimum of 0.5× and OpenAI's maximum of 1.5×.
 - `--stability`, `--similarity`, `--similarity-boost`, `--style`, `--speaker-boost`, `--no-speaker-boost`, `--seed`, `--normalize`, `--lang`, and `--latency-tier` are rejected.
+- An HTTP 401 response tells you to replace the selected `OPENAI_API_KEY` or `OPENAI_API_KEY_FILE` credential and retry, without echoing the key or server body.
 - `--timeout` / `SAG_TIMEOUT` covers connection and synthesis. Cancellation closes the WebSocket. Per-event and total-audio limits prevent unbounded buffering.
 
 Realtime is a generative model. Sag sends input as text to narrate with instructions

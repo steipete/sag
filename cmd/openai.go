@@ -18,9 +18,6 @@ func prepareOpenAIOptions(cmd *cobra.Command, opts *speakOptions) error {
 	if !cmd.Flags().Changed("model-id") {
 		opts.modelID = openai.DefaultModel
 	}
-	if !(opts.speed >= 0.5 && opts.speed <= 1.5) {
-		return fmt.Errorf("OpenAI speed must be between 0.5 and 1.5")
-	}
 	if cmd.Flags().Changed("format") {
 		if !strings.EqualFold(opts.outputFmt, "wav") {
 			return fmt.Errorf("OpenAI Realtime supports wav output only; got %s", opts.outputFmt)
