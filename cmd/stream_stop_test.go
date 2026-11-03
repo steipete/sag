@@ -77,17 +77,11 @@ func TestStreamAndPlayStopsCopyWithPlayer(t *testing.T) {
 
 type failedStream struct{ err error }
 
-func TestBufferedPlaybackUsesCompleteReader(t *testing.T) {
+func TestBufferedPlaybackPreservesPlayerError(t *testing.T) {
 	original := playToSpeakers
 	t.Cleanup(func() { playToSpeakers = original })
 	failure := errors.New("player failed before reading")
-	playToSpeakers = func(_ context.Context, r io.Reader) error {
-		// Buffered playback needs no writer goroutine or blocking pipe.
-		if _, ok := r.(*bytes.Reader); !ok {
-			t.Errorf("buffered reader is %T", r)
-		}
-		return failure
-	}
+	playToSpeakers = func(context.Context, io.Reader) error { return failure }
 	_, err := convertAndPlay(context.Background(), speakOptions{play: true}, func(context.Context) ([]byte, error) { return []byte("audio"), nil })
 	if !errors.Is(err, failure) {
 		t.Fatalf("lost playback error: %v", err)

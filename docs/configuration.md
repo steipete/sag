@@ -71,7 +71,7 @@ The flag wins over the environment variable; both accept any `time.ParseDuration
 SAG_TIMEOUT=10m sag --no-play -o long.mp3 "$(<chapter.txt)"
 ```
 
-Interrupted ElevenLabs streaming can leave a partial file. OpenAI writes files only after complete synthesis and, when enabled, successful playback. Use `ffprobe` to sanity-check duration before publishing.
+Interrupted ElevenLabs streaming can leave a partial file. OpenAI writes files only after complete synthesis. Streamed playback also waits for playback to succeed before saving; buffered playback saves the completed audio before playback begins. Use `ffprobe` to sanity-check duration before publishing.
 
 ## Player backend
 

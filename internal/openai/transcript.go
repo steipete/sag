@@ -10,10 +10,10 @@ import (
 // expansions and homophones can differ even when the audio is acceptable.
 func CheckTranscript(input, transcript string) string {
 	if strings.TrimSpace(transcript) == "" {
-		return "OpenAI returned no transcript; narration could not be checked"
+		return "OpenAI returned no transcript; narration could not be checked; review the generated audio against the input before sharing or relying on it"
 	}
 	if normalizedWords(input) != normalizedWords(transcript) {
-		return "OpenAI transcript differs from the input; narration may contain omissions or rewrites"
+		return "OpenAI transcript differs from the input; narration may contain omissions or rewrites; review the generated audio against the input before sharing or relying on it"
 	}
 	return ""
 }
