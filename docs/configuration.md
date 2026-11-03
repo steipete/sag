@@ -71,13 +71,13 @@ The flag wins over the environment variable; both accept any `time.ParseDuration
 SAG_TIMEOUT=10m sag --no-play -o long.mp3 "$(<chapter.txt)"
 ```
 
-When sag is the bottleneck and the shell aborts the request, you’ll get a partial file. Use `ffprobe` to sanity-check duration before publishing.
+Interrupted ElevenLabs streaming can leave a partial file. OpenAI writes files only after complete synthesis and, when enabled, successful playback. Use `ffprobe` to sanity-check duration before publishing.
 
 ## Player backend
 
 | Value | Behaviour |
 | --- | --- |
-| `auto` (default) | `afplay` on macOS, `oto` everywhere else. |
+| `auto` (default) | Oto for OpenAI streaming; otherwise `afplay` on macOS and `oto` elsewhere. |
 | `afplay` | macOS only; routes through CoreAudio so AirPlay and Bluetooth zones work. |
 | `oto` | Cross-platform MP3/WAV decoder + `oto`. |
 

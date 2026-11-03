@@ -208,7 +208,7 @@ func TestSpeakOpenAIPlaybackAndFile(t *testing.T) {
 			playToSpeakers = func(_ context.Context, r io.Reader) error { var err error; played, err = io.ReadAll(r); return err }
 			t.Cleanup(func() { playToSpeakers = original })
 			out := filepath.Join(t.TempDir(), "test.wav")
-			rootCmd.SetArgs([]string{"speak", "--provider", "openai", "--base-url", srv.URL + "/v1", "-v", "marin", "--player", "auto", "--play", "-o", out, "--timeout", "5s", "--speed", speed, "Hello world"})
+			rootCmd.SetArgs([]string{"speak", "--provider", "openai", "--base-url", srv.URL + "/v1", "-v", "marin", "--player", "auto", "--no-stream", "--play", "-o", out, "--timeout", "5s", "--speed", speed, "Hello world"})
 			if err := rootCmd.Execute(); err != nil {
 				t.Fatal(err)
 			}
@@ -225,7 +225,7 @@ func TestSpeakOpenAIPlaybackAndFile(t *testing.T) {
 
 func TestSpeakOpenAIRejectsUnsupportedOptions(t *testing.T) {
 	for _, args := range [][]string{
-		{"--format", "mp3"}, {"-o", "out.mp3"}, {"-o", "out.flac"}, {"--stream"}, {"--speed", "1.6"}, {"--rate", "300"},
+		{"--format", "mp3"}, {"-o", "out.mp3"}, {"-o", "out.flac"}, {"--stream", "--player", "afplay"}, {"--speed", "1.6"}, {"--rate", "300"},
 		{"--stability", "0.5"}, {"--similarity", "0.5"}, {"--similarity-boost", "0.5"}, {"--style", "0.5"}, {"--speaker-boost"}, {"--no-speaker-boost"}, {"--seed", "1"}, {"--normalize", "auto"}, {"--lang", "en"}, {"--latency-tier", "1"},
 	} {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {

@@ -143,8 +143,9 @@ func init() {
 			defer cancel()
 
 			var (
-				streamFunc  func(context.Context) (io.ReadCloser, error)
-				convertFunc func(context.Context) ([]byte, error)
+				streamFunc       func(context.Context) (io.ReadCloser, error)
+				convertFunc      func(context.Context) ([]byte, error)
+				synthesizeOpenAI openAISynthesizer
 			)
 			switch provider.name {
 			case providerElevenLabs:
@@ -160,8 +161,18 @@ func init() {
 				}
 			case providerOpenAI:
 				payload := openai.TTSRequest{Text: text, ModelID: opts.modelID, VoiceID: opts.voiceID, Speed: opts.speed}
+				synthesizeOpenAI = func(ctx context.Context, onPCM func([]byte) error) (openai.Result, error) {
+					result, err := provider.openai.Synthesize(ctx, payload, onPCM)
+					if err == nil {
+						if warning := openai.CheckTranscript(text, result.Transcript); warning != "" {
+							fmt.Fprintln(os.Stderr, "warning:", warning)
+						}
+					}
+					return result, err
+				}
 				convertFunc = func(ctx context.Context) ([]byte, error) {
-					return provider.openai.ConvertTTS(ctx, payload)
+					result, err := synthesizeOpenAI(ctx, nil)
+					return result.Audio, err
 				}
 			case providerSixtyDB:
 				payload, err := buildSixtyDBTTSRequest(cmd, opts, text)
@@ -180,7 +191,13 @@ func init() {
 
 			start := time.Now()
 			var bytes int64
-			if opts.stream {
+			if opts.stream && provider.name == providerOpenAI {
+				n, err := streamOpenAIAndPlay(ctx, opts, synthesizeOpenAI)
+				bytes = n
+				if err != nil {
+					return err
+				}
+			} else if opts.stream {
 				n, err := streamAndPlay(ctx, opts, streamFunc)
 				bytes = n
 				if err != nil {
@@ -229,7 +246,7 @@ func init() {
 	cmd.Flags().StringVar(&opts.lang, "lang", "", "Language code (2-letter ISO 639-1; influences normalization; when set)")
 	cmd.Flags().BoolVar(&opts.metrics, "metrics", false, "Print request metrics to stderr (chars, bytes, duration, etc.)")
 	cmd.Flags().DurationVar(&opts.timeout, "timeout", 0, "Maximum time for TTS generation (0 disables sag's internal timeout; SAG_TIMEOUT)")
-	cmd.Flags().StringVar(&opts.player, "player", "auto", "Audio backend: auto (afplay on macOS, oto elsewhere), afplay, oto (SAG_PLAYER)")
+	cmd.Flags().StringVar(&opts.player, "player", "auto", "Audio backend: auto (oto for OpenAI streaming; otherwise afplay on macOS, oto elsewhere), afplay, oto (SAG_PLAYER)")
 	cmd.Flags().StringVarP(&opts.inputFile, "input-file", "f", "", "Read text from file (use '-' for stdin), matching macOS say -f")
 	cmd.Flags().Bool("progress", false, "Accepted for macOS say compatibility (no-op)")
 	cmd.Flags().String("network-send", "", "Accepted for macOS say compatibility (not implemented)")
@@ -269,14 +286,18 @@ func applyCompatibilityFlags(cmd *cobra.Command, opts *speakOptions) error {
 	return nil
 }
 
-func playbackFunc(choice string) (func(context.Context, io.Reader) error, error) {
+func resolvedPlayer(choice string) string {
 	choice = strings.ToLower(strings.TrimSpace(choice))
 	if choice == "" || choice == "auto" {
 		if env := strings.TrimSpace(os.Getenv("SAG_PLAYER")); env != "" {
 			choice = strings.ToLower(env)
 		}
 	}
-	switch choice {
+	return choice
+}
+
+func playbackFunc(choice string) (func(context.Context, io.Reader) error, error) {
+	switch resolvedPlayer(choice) {
 	case "", "auto":
 		return playToSpeakers, nil
 	case "afplay":

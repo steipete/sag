@@ -60,11 +60,18 @@ sag voices --provider openai
 ```
 
 OpenAI uses the Realtime API with `gpt-realtime-2.1-mini` by default; override it
-with `--model-id`. Normal-speed requests start without a session-configuration round trip. Output is 24 kHz mono WAV, buffered until the response completes.
-Explicit `--stream`, non-WAV formats, and ElevenLabs voice-tuning flags are rejected.
+with `--model-id`. Normal-speed requests start without a session-configuration round trip.
+Playback streams PCM through Oto by default. Use `--no-stream` or `--player afplay`
+for buffered playback; explicit `--stream --player afplay` is rejected.
+Files are 24 kHz mono WAV and are saved only after successful completion.
+Non-WAV formats and ElevenLabs voice-tuning flags are rejected.
 `--speed` / `--rate` support 0.5–1.5× speed. Built-in voice listing is local;
 preview URLs are not available. Realtime is generative: sag requests verbatim
-narration, but the model can change wording. Tell listeners the voice is AI-generated.
+narration, but the model can change wording. After generation, sag compares the
+returned transcript with the input and warns about differences or missing transcripts
+without printing either text. This ignores case and punctuation; number expansions
+and homophones can still produce warnings. Streaming may play changed words before
+the warning arrives. Tell listeners the voice is AI-generated.
 See [providers](docs/providers.md) for details.
 
 ## Usage

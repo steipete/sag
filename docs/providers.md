@@ -26,15 +26,23 @@ OpenAI connects to `wss://api.openai.com/v1/realtime` with Bearer authentication
 - Default model: `gpt-realtime-2.1-mini`; use `--model-id` for another compatible Realtime model.
 - Default voice: `marin`. Also available: `cedar`, `alloy`, `ash`, `ballad`, `coral`, `echo`, `sage`, `shimmer`, and `verse`.
 - `sag voices --provider openai` lists built-in voices locally. There are no preview URLs for `--try`; use `sag --provider openai -v NAME "Sample text"` instead.
-- WAV output only: 24 kHz, mono, signed 16-bit PCM. Sag buffers audio and requires a successful `response.done` before saving or playing. Explicit `--stream` is rejected; the default automatically uses buffered playback.
+- Playback streams 24 kHz mono PCM through Oto by default. The consumer receives complete 16-bit frames even when provider chunks split a sample. Playback failure stops synthesis and closes blocked reads/writes.
+- Files remain WAV-only and require a successful `response.done`. With streamed playback, playback must also succeed before the file is written; failed synthesis or playback leaves existing output files untouched.
+- `--no-stream` buffers before playback. `--player afplay` (or `SAG_PLAYER=afplay`) selects buffered macOS playback; explicit `--stream --player afplay` is rejected. File-only output is always buffered.
 - `--speed` and `--rate` accept the shared CLI minimum of 0.5× and OpenAI's maximum of 1.5×.
 - `--stability`, `--similarity`, `--similarity-boost`, `--style`, `--speaker-boost`, `--no-speaker-boost`, `--seed`, `--normalize`, `--lang`, and `--latency-tier` are rejected.
 - An HTTP 401 response tells you to replace the selected `OPENAI_API_KEY` or `OPENAI_API_KEY_FILE` credential and retry, without echoing the key or server body.
 - `--timeout` / `SAG_TIMEOUT` covers connection and synthesis. Cancellation closes the WebSocket. Per-event and total-audio limits prevent unbounded buffering.
 
 Realtime is a generative model. Sag sends input as text to narrate with instructions
-to read it verbatim, but exact wording is not guaranteed. Disclose that the voice is
-AI-generated to listeners.
+to read it verbatim, but exact wording is not guaranteed. Sag checks the final
+`response.output_audio_transcript.done` transcript after successful generation.
+Comparison ignores case, punctuation, and whitespace. Missing transcripts or
+changed wording produce a warning without exposing either text. This is a heuristic:
+number expansions, homophones, and spelling differences can warn even when audio
+is acceptable. It is not independent audio transcription or a guarantee of accuracy.
+With streaming, changed words may already have played before the warning arrives.
+Disclose that the voice is AI-generated to listeners.
 
 The older `/v1/audio/speech` models (`tts-1`, `tts-1-hd`, and `gpt-4o-mini-tts`)
 are not used: OpenAI has [announced their shutdown for January 6, 2027](https://developers.openai.com/api/docs/deprecations#2026-10-01-text-to-speech-models).

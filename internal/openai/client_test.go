@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"math"
 	"net/http"
 	"net/http/httptest"
@@ -89,6 +90,48 @@ func testServer(t *testing.T, events []any) *httptest.Server {
 			}
 		}
 	}))
+}
+
+func TestSynthesizePCMAndTranscript(t *testing.T) {
+	srv := testServer(t, []any{
+		audioDelta([]byte{1}), audioDelta([]byte{2, 3}), audioDelta([]byte{4}),
+		map[string]any{"type": "response.output_audio_transcript.done", "transcript": "Hello world"},
+		map[string]any{"type": "response.output_audio.done"}, responseDone("completed"),
+	})
+	defer srv.Close()
+	var pcm []byte
+	result, err := NewClient("test-key", srv.URL+"/v1").Synthesize(context.Background(), TTSRequest{Text: "Hello world", Speed: 1.2}, func(chunk []byte) error {
+		if len(chunk)%2 != 0 {
+			t.Error("split PCM frame reached player")
+		}
+		pcm = append(pcm, chunk...)
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Transcript != "Hello world" || string(pcm) != "\x01\x02\x03\x04" || string(result.Audio[44:]) != string(pcm) {
+		t.Fatalf("result=%+v pcm=%v", result, pcm)
+	}
+}
+
+func TestSynthesizeStopsOnConsumerError(t *testing.T) {
+	srv := testServer(t, []any{audioDelta([]byte{1, 2})})
+	defer srv.Close()
+	want := errors.New("player failed")
+	result, err := NewClient("test-key", srv.URL+"/v1").Synthesize(context.Background(), TTSRequest{Text: "Hello world", Speed: 1.2}, func([]byte) error { return want })
+	if !errors.Is(err, want) || len(result.Audio) != 0 {
+		t.Fatalf("err=%v audio=%d", err, len(result.Audio))
+	}
+}
+
+func TestSynthesizeTranscriptLimit(t *testing.T) {
+	srv := testServer(t, []any{map[string]any{"type": "response.output_audio_transcript.done", "transcript": strings.Repeat("x", maxTranscriptBytes+1)}})
+	defer srv.Close()
+	_, err := NewClient("test-key", srv.URL+"/v1").Synthesize(context.Background(), TTSRequest{Text: "Hello world", Speed: 1.2}, nil)
+	if err == nil || !strings.Contains(err.Error(), "transcript exceeds") {
+		t.Fatalf("err=%v", err)
+	}
 }
 
 func audioDelta(data []byte) any {

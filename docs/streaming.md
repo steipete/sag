@@ -5,9 +5,30 @@ description: "How sag streams audio while it generates, picks a player backend, 
 
 # Streaming & playback
 
-`sag` streams ElevenLabs by default. Audio bytes flow straight to your speakers (and optionally to a file) without waiting for the full payload. 60db synthesis is buffered because its live response must be fully validated and wrapped as WAV before playback.
+`sag` requests streamed ElevenLabs audio by default; playback latency depends on the selected backend. OpenAI streams PCM through Oto by default. 60db synthesis is buffered because its live response must be fully validated and wrapped as WAV before playback.
 
-## Streaming pipeline
+## OpenAI streaming
+
+OpenAI audio chunks feed Oto as complete PCM16 frames while the response is still
+being generated. `--player auto` selects this path for OpenAI; `--player oto` makes
+it explicit. Cancellation and player failures close the audio pipe and stop the
+WebSocket request.
+
+Use `--no-stream` to buffer before playback, or select `--player afplay` for
+buffered macOS routing. `SAG_PLAYER=afplay` is honored. Explicitly combining
+`--stream` with `afplay` is an error because that backend needs a complete file.
+
+`-o voice.wav` saves a validated complete response. Add `--play` to listen while
+it generates; the file is written only after synthesis and playback succeed.
+Failed generation or playback preserves an existing output file.
+
+The final narration transcript is compared with the input after generation.
+Warnings flag possible omissions or rewrites without printing the text. Streaming
+can play changed words before the check finishes; use `--no-stream` to receive
+warnings before playback. See [OpenAI provider notes](providers.md) for the
+comparison's limitations.
+
+## ElevenLabs streaming pipeline
 
 Streaming path (default):
 
@@ -26,7 +47,7 @@ ElevenLabs /v1/text-to-speech/{voice}
         ↓ (full body)
 []byte ──→ os.File   (when -o)
         ↘
-          io.Pipe  ──→ player backend  (when --play)
+          bytes.Reader ──→ player backend  (when --play)
 ```
 
 The streaming path uses a `io.MultiWriter` so writing to disk and playing in parallel is one allocation and one copy loop. The non-streaming path materializes the whole response, then plays it. 60db always uses the latter path; explicit `--stream` is rejected.
@@ -53,11 +74,11 @@ Tiers 3 and 4 are noticeable on long prompts; on short ones the win is mostly co
 
 ## Player backends
 
-`sag` uses `afplay` on macOS by default and falls back to a pure-Go MP3/WAV decoder with `oto` on Linux/Windows. Pick explicitly via `--player` or `SAG_PLAYER`.
+OpenAI streaming uses `oto` by default. Other playback uses `afplay` on macOS and a pure-Go MP3/WAV decoder with `oto` on Linux/Windows. Pick explicitly via `--player` or `SAG_PLAYER`.
 
 | Backend | Platforms | Notes |
 | --- | --- | --- |
-| `auto` | all | macOS → `afplay`, others → `oto`. |
+| `auto` | all | OpenAI streaming → `oto`; otherwise macOS → `afplay`, others → `oto`. |
 | `afplay` | macOS | Routes through CoreAudio so AirPlay, Bluetooth zones, and the menubar volume all work as expected. |
 | `oto` | macOS, Linux, Windows | Pure-Go MP3 and PCM16 WAV decode + cross-platform output. Good fallback on macOS when `afplay` misbehaves (rare). |
 
@@ -70,7 +91,7 @@ SAG_PLAYER=afplay sag "Always afplay."
 
 ## File-only mode
 
-`-o/--output <path>` writes audio while generating. Speaker playback is disabled by default when `-o` is set; pass `--play` to keep both, or `--no-play` to be explicit:
+`-o/--output <path>` saves audio. ElevenLabs streaming writes during generation; OpenAI and 60db wait for a validated response. Speaker playback is disabled by default when `-o` is set; pass `--play` to keep both, or `--no-play` to be explicit:
 
 ```bash
 sag -o intro.mp3 "Save only."
@@ -82,9 +103,9 @@ The last form errors with `nothing to do: enable --play or provide --output`. `s
 
 ## Cancellation
 
-`Ctrl-C` cancels both the HTTP request and the player. With `--timeout` (or `SAG_TIMEOUT`), sag uses `context.WithTimeout`; on expiry, in-flight bytes are dropped and you get a partial file (if any). Use `ffprobe` to verify duration before publishing.
+`Ctrl-C` cancels both the HTTP request and the player. With `--timeout` (or `SAG_TIMEOUT`), sag uses `context.WithTimeout`; on expiry, in-flight bytes are dropped. ElevenLabs streaming can leave a partial file; OpenAI does not save incomplete audio. Use `ffprobe` to verify duration before publishing.
 
-## Format ↔ player matrix
+## ElevenLabs format ↔ player matrix
 
 | `--format` | Streamed playback | File output |
 | --- | --- | --- |

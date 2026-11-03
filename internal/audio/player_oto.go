@@ -50,6 +50,15 @@ func StreamViaOto(ctx context.Context, r io.Reader) error {
 	return playPCM(ctx, decoder, decoder.SampleRate(), 2)
 }
 
+// StreamPCM16 plays signed little-endian PCM without waiting for a WAV file.
+// It owns r and closes it on return or cancellation to unblock audio reads.
+func StreamPCM16(ctx context.Context, r io.ReadCloser, sampleRate, channelCount int) error {
+	defer func() { _ = r.Close() }()
+	stop := context.AfterFunc(ctx, func() { _ = r.Close() })
+	defer stop()
+	return playPCM(ctx, r, sampleRate, channelCount)
+}
+
 func playPCM(ctx context.Context, pcm io.Reader, sampleRate, channelCount int) error {
 	audioCtx, ready, err := getAudioContext(sampleRate, channelCount, oto.FormatSignedInt16LE)
 	if err != nil {
