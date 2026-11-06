@@ -153,6 +153,21 @@ func parseAudioFormat(value string) audioFormat {
 	}
 }
 
+func mp3FrameHeader(data []byte) bool {
+	if len(data) < 4 || data[0] != 0xff || data[1]&0xe0 != 0xe0 {
+		return false
+	}
+	version := (data[1] >> 3) & 0x03
+	layer := (data[1] >> 1) & 0x03
+	bitrate := (data[2] >> 4) & 0x0f
+	sampleRate := (data[2] >> 2) & 0x03
+	// Bitrate 0 and 15 are not a usable frame. PCM can share the two-byte sync.
+	if version == 0x01 || layer == 0x00 || bitrate == 0x00 || bitrate == 0x0f || sampleRate == 0x03 {
+		return false
+	}
+	return true
+}
+
 func sniffAudioFormat(data []byte) (audioFormat, error) {
 	if len(data) == 0 {
 		return "", errors.New("empty audio")
@@ -160,7 +175,7 @@ func sniffAudioFormat(data []byte) (audioFormat, error) {
 	switch {
 	case len(data) >= 3 && string(data[:3]) == "ID3":
 		return audioFormatMP3, nil
-	case len(data) >= 2 && data[0] == 0xff && data[1]&0xe0 == 0xe0:
+	case mp3FrameHeader(data):
 		return audioFormatMP3, nil
 	case len(data) >= 12 && string(data[:4]) == "RIFF" && string(data[8:12]) == "WAVE":
 		return audioFormatWAV, nil

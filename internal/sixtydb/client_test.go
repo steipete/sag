@@ -285,6 +285,38 @@ func TestConvertTTSAcceptsLiveNDJSONPCMAndWrapsWAV(t *testing.T) {
 	}
 }
 
+func TestConvertTTSWrapsPCMThatSharesAnMP3Sync(t *testing.T) {
+	pcm := []byte{0xff, 0xfb, 0x00, 0x00}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/x-ndjson")
+		_, _ = io.WriteString(w, `{"result":{"audioContent":"`+mustBase64(pcm)+`"}}`+"\n")
+	}))
+	defer srv.Close()
+
+	c := NewClient("key", srv.URL)
+	got, err := c.ConvertTTS(context.Background(), TTSRequest{Text: "hi", OutputFormat: "wav"})
+	if err != nil {
+		t.Fatalf("ConvertTTS error: %v", err)
+	}
+	if len(got) != 44+len(pcm) || string(got[:4]) != "RIFF" || !bytes.Equal(got[44:], pcm) {
+		t.Fatalf("WAV = %d bytes, prefix %q, pcm %v", len(got), got[:4], got[44:])
+	}
+}
+
+func TestSniffAudioFormatRequiresAUsableMP3Frame(t *testing.T) {
+	if _, err := sniffAudioFormat([]byte{0xff, 0xfb, 0x00, 0x00}); err == nil {
+		t.Fatal("expected PCM with a bare sync word to stay unrecognized")
+	}
+	got, err := sniffAudioFormat([]byte{0xff, 0xfb, 0x90, 0x00})
+	if err != nil || got != audioFormatMP3 {
+		t.Fatalf("valid frame = %q, %v", got, err)
+	}
+	got, err = sniffAudioFormat([]byte("ID3rest"))
+	if err != nil || got != audioFormatMP3 {
+		t.Fatalf("ID3 = %q, %v", got, err)
+	}
+}
+
 func TestConvertTTSRejectsIncompleteLiveNDJSON(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/x-ndjson")

@@ -2,6 +2,9 @@
 
 ## 0.4.6 - Unreleased
 
+### Fixed
+- 60db synthesis wraps PCM that only shares an MP3 sync word, such as `ff fb 00 00`, as WAV. An ID3 tag or a usable MP3 frame is still detected.
+
 ## 0.4.5 - 2026-10-23
 
 **Highlights:** Streamed playback stops upstream work promptly and preserves player and provider errors.
