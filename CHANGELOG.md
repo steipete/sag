@@ -2,6 +2,9 @@
 
 ## 0.4.6 - Unreleased
 
+### Fixed
+- 60db synthesis keeps a PCM chunk that starts with `{` and still wraps it as WAV. A nested JSON audio chunk is unchanged.
+
 ## 0.4.5 - 2026-10-23
 
 **Highlights:** Streamed playback stops upstream work promptly and preserves player and provider errors.

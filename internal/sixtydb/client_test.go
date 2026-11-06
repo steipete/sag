@@ -285,6 +285,24 @@ func TestConvertTTSAcceptsLiveNDJSONPCMAndWrapsWAV(t *testing.T) {
 	}
 }
 
+func TestConvertTTSWrapsPCMThatStartsWithABrace(t *testing.T) {
+	pcm := []byte{0x7b, 0x00, 0x01, 0x00}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/x-ndjson")
+		_, _ = io.WriteString(w, `{"result":{"audioContent":"`+mustBase64(pcm)+`"}}`+"\n")
+	}))
+	defer srv.Close()
+
+	c := NewClient("key", srv.URL)
+	got, err := c.ConvertTTS(context.Background(), TTSRequest{Text: "hi", OutputFormat: "wav"})
+	if err != nil {
+		t.Fatalf("ConvertTTS error: %v", err)
+	}
+	if len(got) != 44+len(pcm) || string(got[:4]) != "RIFF" || !bytes.Equal(got[44:], pcm) {
+		t.Fatalf("WAV = %d bytes, prefix %q, pcm %v", len(got), got[:4], got[44:])
+	}
+}
+
 func TestConvertTTSRejectsIncompleteLiveNDJSON(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/x-ndjson")

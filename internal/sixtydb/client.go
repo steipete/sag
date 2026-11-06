@@ -516,18 +516,20 @@ func decodeAudioContent(encoded string, totalBytes int64) ([]byte, error) {
 			} `json:"result"`
 			AudioContent string `json:"audioContent"`
 		}
-		if err := json.Unmarshal(decoded, &inner); err != nil {
-			return nil, fmt.Errorf("decode nested audio chunk: %w", err)
+		if err := json.Unmarshal(decoded, &inner); err == nil {
+			encoded = inner.Result.AudioContent
+			if encoded == "" {
+				encoded = inner.AudioContent
+			}
+			if encoded != "" {
+				decoded, err = decodeBase64Audio(encoded, maxDecodedChunkBytes, "nested audio chunk")
+				if err != nil {
+					return nil, err
+				}
+			}
 		}
-		encoded = inner.Result.AudioContent
-		if encoded == "" {
-			encoded = inner.AudioContent
-		}
-		decoded, err = decodeBase64Audio(encoded, maxDecodedChunkBytes, "nested audio chunk")
-		if err != nil {
-			return nil, err
-		}
-	} else if len(decoded) > maxDecodedChunkBytes {
+	}
+	if len(decoded) > maxDecodedChunkBytes {
 		return nil, fmt.Errorf("audio chunk exceeds %d bytes", maxDecodedChunkBytes)
 	}
 
