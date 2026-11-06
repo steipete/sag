@@ -307,12 +307,12 @@ func applyRateAndSpeed(opts *speakOptions) error {
 	if opts.rateWPM > 0 {
 		// Map macOS `say` rate (words per minute) to ElevenLabs speed multiplier.
 		opts.speed = float64(opts.rateWPM) / float64(defaultWPM)
-		if opts.speed <= 0.5 || opts.speed >= 2.0 {
+		if opts.speed < 0.5 || opts.speed > 2.0 {
 			return fmt.Errorf("rate %d wpm maps to speed %.2f, which is outside the allowed 0.5–2.0 range", opts.rateWPM, opts.speed)
 		}
 		return nil
 	}
-	if opts.speed <= 0.5 || opts.speed >= 2.0 {
+	if opts.speed < 0.5 || opts.speed > 2.0 {
 		return errors.New("speed must be between 0.5 and 2.0 (e.g. 1.1 for 10% faster)")
 	}
 	return nil

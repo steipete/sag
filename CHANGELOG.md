@@ -2,6 +2,9 @@
 
 ## 0.4.6 - Unreleased
 
+### Fixed
+- Accept `--speed` 0.5 and 2.0, and a `--rate` that maps to those ends.
+
 ## 0.4.5 - 2026-10-23
 
 **Highlights:** Streamed playback stops upstream work promptly and preserves player and provider errors.
