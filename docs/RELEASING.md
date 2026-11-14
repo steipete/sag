@@ -6,7 +6,7 @@ summary: 'Release checklist for sag (signed GitHub release + Homebrew tap)'
 
 The manually dispatched `Release (unified)` workflow calls the shared [Go CLI archetype](https://github.com/openclaw/release-workflows) at v1.11.8, commit `fc49859568b3781af7663bee48c003fd987dc08b`. It freezes protected `main`, verifies the fleet-signed annotated version tag, builds, Developer ID signs and notarizes macOS binaries, and publishes only after independent Apple Silicon and x86_64 verification. macOS jobs use Apple Silicon `xcode-27` runners; x86_64 verification runs under Rosetta. Pushing a tag alone does not start a release.
 
-To validate the current version from merged `main` without creating tags, releases, or Homebrew updates, dispatch `gh workflow run release-unified.yml --repo steipete/sag --ref main -f version=0.4.3 -F dry_run=true`. This still builds, signs, and verifies the release artifacts.
+To validate the current version from merged `main` without creating tags, releases, or Homebrew updates, dispatch `gh workflow run release-unified.yml --repo steipete/sag --ref main -f version=0.4.5 -F dry_run=true`. This still builds, signs, and verifies the release artifacts.
 
 ## Repository setup
 
@@ -32,7 +32,7 @@ The caller uses `repository-type: personal`: `Developer ID Application: Peter St
 
 `.goreleaser.yaml` builds both Darwin architectures on macOS. Keep `MACOSX_DEPLOYMENT_TARGET`, `CGO_CFLAGS`, and `CGO_LDFLAGS` pinned to macOS 15.0. Darwin uses external linking so the system linker honors that minimum; the explicit compiler/linker flags also enter Go’s cgo cache key. Every build runs `scripts/check-macos-target`, which requires `otool -l` to report `LC_BUILD_VERSION minos 15.0` before signing.
 
-Use Go 1.27.3 or newer for builds, matching the `go.mod` toolchain directive and CI. The source minimum remains Go 1.25; the newer build toolchain supplies standard-library security fixes.
+Use Go 1.27.4 or newer for builds, matching the `go.mod` toolchain directive and CI. The source minimum remains Go 1.25; the newer build toolchain supplies standard-library security fixes.
 
 `.goreleaser-linux-windows.yaml` builds Linux amd64/arm64 and Windows amd64 on Ubuntu. The credential-free build hook installs both ALSA development architectures and the arm64 cross-compiler from Ubuntu repositories. Windows does not use cgo. Linux executables dynamically link the system ALSA runtime.
 

@@ -20,6 +20,8 @@ deb [arch=arm64 signed-by=/usr/share/keyrings/ubuntu-archive-keyring.gpg] http:/
 EOF
 apt_options=(-o "Dir::Etc::sourcelist=$sources" -o "Dir::Etc::sourceparts=-")
 sudo apt-get "${apt_options[@]}" update
-sudo apt-get "${apt_options[@]}" install -y --no-install-recommends \
+# The disposable runner can contain newer native toolchain packages than the
+# Ubuntu archive. Multiarch libraries must use matching archive versions.
+sudo apt-get "${apt_options[@]}" install -y --allow-downgrades --no-install-recommends \
   gcc gcc-aarch64-linux-gnu libc6-dev-arm64-cross pkg-config \
   libasound2-dev:amd64 libasound2-dev:arm64

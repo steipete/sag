@@ -2,6 +2,12 @@
 
 ## 0.4.6 - Unreleased
 
+### Fixed
+- Preserve 60db PCM beginning with a brace or an MP3-like sync prefix, and accept the documented 0.5–2.0 speed endpoints. Thanks @SebTardif.
+
+### Changed
+- Update audio dependencies and build with patched Go 1.27.4 while retaining Go 1.25 support.
+
 ## 0.4.5 - 2026-10-23
 
 **Highlights:** Streamed playback stops upstream work promptly and preserves player and provider errors.

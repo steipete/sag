@@ -56,7 +56,7 @@ These flags are passed through to ElevenLabs and rejected on 60db:
 ### Parameter translation
 
 - `--stability` and `--similarity` stay in the CLI's `0..1` range and are scaled to 60db's documented `0..100` request values.
-- 60db sends 48 kHz mono PCM. Sag wraps it as WAV, so `--format wav` and `.wav` output are supported.
+- 60db sends 48 kHz mono PCM; byte prefixes that resemble JSON or incomplete MP3 headers are preserved. Sag wraps it as WAV, so `--format wav` and `.wav` output are supported.
 
 ## Streaming, files, and playback
 
