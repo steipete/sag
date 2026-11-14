@@ -94,8 +94,14 @@ or replaces your normal Codex login. Existing provider selection stays unchanged
 Playback streams through Oto as audio arrives; output is 24 kHz mono WAV. Use
 `--no-stream` or `--player afplay` for buffered playback. Streaming uses a 100 ms
 player prebuffer; a fresh account connection still adds startup latency.
+On Unix, add `--keep-alive 1m` to keep one fresh voice session ready for the next
+request. The first call still connects; subsequent calls can start sooner. Each
+session narrates only once, so previous requests cannot alter the next script.
+The local worker closes after the idle timeout (maximum 5 minutes). This is off
+by default, and idle connections can count toward account voice usage.
+
 `--metrics` includes time to the first PCM chunk during streaming. Requests are limited to
-3,500 UTF-8 bytes to avoid native speech truncation. Model, speed, and voice-tuning
+3,500 UTF-8 bytes. Model, speed, and voice-tuning
 flags are unsupported. The default timeout is 90 seconds. As with other generative
 voices, review narration for wording changes and disclose that it is AI-generated.
 See [providers](docs/providers.md#chatgpt-account-experimental) for configuration.

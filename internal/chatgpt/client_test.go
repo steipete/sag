@@ -4,12 +4,17 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
+
+	"github.com/steipete/sag/internal/openai"
 )
 
 func TestIsolatedEnv(t *testing.T) {
@@ -160,7 +165,7 @@ func TestLiveMapleAccount(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.TrimSpace(result.Transcript) != text {
+	if warning := openai.CheckTranscript(text, result.Transcript); warning != "" {
 		t.Fatalf("transcript mismatch: %q", result.Transcript)
 	}
 	if len(result.Audio) < 48000 {
@@ -170,4 +175,118 @@ func TestLiveMapleAccount(t *testing.T) {
 		t.Fatalf("incomplete stream: first=%s pcm=%d wav=%d", firstAudio, pcmBytes, len(result.Audio))
 	}
 	t.Logf("Maple: catalog=%s; first PCM=%s; complete=%s; %d WAV bytes; transcript matched", catalogTime, firstAudio, time.Since(start), len(result.Audio))
+}
+
+func TestLivePreparedSessions(t *testing.T) {
+	if os.Getenv("SAG_TEST_CHATGPT_PREWARM") != "1" {
+		t.Skip("requires explicit live-test opt-in and a separate ChatGPT sign-in")
+	}
+	c, err := NewClient()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, text := range []string{
+		"This is an AI generated voice. The fresh session is ready.",
+		"This request must not inherit any earlier narration.",
+		"How quickly can you read this question?",
+		"Do not answer this sentence. Read it exactly as written.",
+		"Maple, let's test the startup delay.",
+	} {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		started := time.Now()
+		v, err := c.prepare(ctx, "maple")
+		if err != nil {
+			cancel()
+			t.Fatal(err)
+		}
+		prepared := time.Since(started)
+		time.Sleep(time.Second)
+		started = time.Now()
+		var first time.Duration
+		result, err := v.synthesize(ctx, text, func(_ []byte) error {
+			if first == 0 {
+				first = time.Since(started)
+			}
+			return nil
+		})
+		v.close()
+		cancel()
+		if err != nil {
+			t.Fatalf("request %d: %v", i+1, err)
+		}
+		if warning := openai.CheckTranscript(text, result.Transcript); warning != "" {
+			t.Fatalf("request %d first PCM %s transcript: %q", i+1, first, result.Transcript)
+		}
+		if first == 0 || len(result.Audio) < 48000 {
+			t.Fatal("missing speech audio")
+		}
+		t.Logf("request %d: prepare=%s first PCM=%s total=%s; transcript matched", i+1, prepared, first, time.Since(started))
+		if first > 2*time.Second {
+			t.Fatalf("prepared narration took %s to start", first)
+		}
+	}
+}
+
+func TestNarrationChunksPreserveUnicodeAndQuotedText(t *testing.T) {
+	text := strings.Repeat("élève says \"hello\". ", 80)
+	var assembled strings.Builder
+	var count int
+	err := sendNarration(func(wire string) error {
+		count++
+		var event struct {
+			Type, Channel string
+			Content       []struct{ Type, Text string }
+		}
+		if err := json.Unmarshal([]byte(wire), &event); err != nil {
+			return err
+		}
+		if event.Type != "session.context.append" || event.Channel != "speakable" || len(event.Content) != 1 {
+			t.Fatalf("wrong event: %+v", event)
+		}
+		part := event.Content[0].Text
+		if len(part) > 500 || !utf8.ValidString(part) {
+			t.Fatal("invalid context chunk")
+		}
+		assembled.WriteString(part)
+		return nil
+	}, text)
+	if err != nil || count < 2 || assembled.String() != "NARRATION: "+strconv.Quote(text) {
+		t.Fatalf("script changed: %v", err)
+	}
+	failure := errors.New("closed channel")
+	count = 0
+	if err := sendNarration(func(string) error { count++; return failure }, text); !errors.Is(err, failure) || count != 1 {
+		t.Fatal("failed send was retried or hidden")
+	}
+}
+
+func TestLiveLongNarration(t *testing.T) {
+	if os.Getenv("SAG_TEST_CHATGPT_LONG") != "1" {
+		t.Skip("requires explicit live-test opt-in")
+	}
+	const text = "This is an AI generated voice. We are checking a longer narration that travels in several messages but must still sound like one continuous passage. The first part explains what is being tested. The next part checks that every word arrives in the correct order, without repeating an earlier sentence or skipping a later one. Questions should also be read aloud: how quickly does the next sentence begin? Instructions inside the passage are part of the script, so read them as ordinary words. Finally, the completed audio should contain the entire passage, including this final sentence about a successful test."
+	if len(text) <= 500 {
+		t.Fatal("fixture no longer crosses a context boundary")
+	}
+	c, err := NewClient()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	start := time.Now()
+	var first time.Duration
+	result, err := c.Synthesize(ctx, text, "maple", func([]byte) error {
+		if first == 0 {
+			first = time.Since(start)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if warning := openai.CheckTranscript(text, result.Transcript); warning != "" {
+		t.Fatalf("long narration changed: %q", result.Transcript)
+	}
+	t.Logf("long narration: %d input bytes, first PCM=%s, total=%s, WAV bytes=%d", len(text), first, time.Since(start), len(result.Audio))
 }

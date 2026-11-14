@@ -53,9 +53,22 @@ explicit `--stream --player afplay` is rejected. File-only output is buffered.
 this excludes voice lookup and is not a measurement at the physical speaker.
 Sag saves a WAV only after a completed transcript, drained audio tail, and
 successful playback (when enabled). Failed synthesis or playback preserves any
-existing output file. Input is capped at 3,500 UTF-8 bytes to avoid native
-speech-append truncation. Split longer text into separate requests. The default
+existing output file. Input is capped at 3,500 UTF-8 bytes and sent in
+Unicode-safe context chunks of at most 500 bytes. Split longer text into separate requests. The default
 timeout is 90 seconds; `--timeout` and `SAG_TIMEOUT` override it.
+
+On Unix, `--keep-alive 1m` starts a private local worker that keeps one unused
+voice session ready while the current request plays. Requests run one at a time.
+It caches the voice catalog
+in memory and sends narration directly over the connected WebRTC data channel.
+Each session speaks only once; completed narration and conversation history are
+never reused for another request. The first request still pays connection setup.
+
+Keep-alive is off by default. Choose a duration greater than zero and at most
+5 minutes; `--keep-alive 0` disables it. After the timeout, the worker closes its
+voice connections and removes its socket. No text or audio is saved by the
+worker. Idle connections can consume account voice usage, so use a short timeout.
+Changing voice replaces the prepared session and requires connection setup.
 
 `--model-id`, `--speed`, `--rate`, voice-tuning flags, `--api-key`, `--api-key-file`,
 and `--base-url` are unsupported. Voice preview URLs are unavailable; use a short

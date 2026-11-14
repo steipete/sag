@@ -12,6 +12,7 @@
 
 ### Fixed
 
+- Add opt-in ChatGPT `--keep-alive` on Unix: prepare a fresh session during playback, reuse the in-memory voice catalog, and send narration over the active WebRTC channel to reduce repeat-request startup delay without reusing conversation history.
 - Reduce streaming PCM player startup buffering from 500 ms to 100 ms and start the ChatGPT WebRTC audio clock before the data channel opens.
 - Avoid a blocked writer when buffered playback fails, honor cancellation while waiting for Oto startup, and report Oto playback errors.
 

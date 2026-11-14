@@ -13,13 +13,15 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // Client uses a dedicated Codex home for ChatGPT authentication. It never reads
 // the normal Codex login, and it never selects an API-key provider as a fallback.
 type Client struct {
-	Home   string
-	Binary string
+	Home      string
+	Binary    string
+	KeepAlive time.Duration
 }
 
 // NewClient resolves the optional sag-specific home and Codex executable.

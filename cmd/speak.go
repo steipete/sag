@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/steipete/sag/internal/audio"
+	"github.com/steipete/sag/internal/chatgpt"
 	"github.com/steipete/sag/internal/elevenlabs"
 	"github.com/steipete/sag/internal/openai"
 	"github.com/steipete/sag/internal/sixtydb"
@@ -41,6 +42,7 @@ type speakOptions struct {
 	metrics     bool
 	timeout     time.Duration
 	player      string
+	keepAlive   time.Duration
 
 	speakerBoost   bool
 	noSpeakerBoost bool
@@ -81,6 +83,16 @@ func init() {
 			}
 			if err := applyTimeoutFromEnv(cmd, &opts); err != nil {
 				return err
+			}
+
+			if opts.keepAlive != 0 {
+				if provider.name != providerChatGPT {
+					return errors.New("--keep-alive requires --provider chatgpt")
+				}
+				if err := chatgpt.ValidateKeepAlive(opts.keepAlive); err != nil {
+					return err
+				}
+				provider.chatgpt.KeepAlive = opts.keepAlive
 			}
 
 			forceVoiceID := cmd.Flags().Changed("voice-id")
@@ -261,6 +273,7 @@ func init() {
 	cmd.Flags().StringVar(&opts.lang, "lang", "", "Language code (2-letter ISO 639-1; influences normalization; when set)")
 	cmd.Flags().BoolVar(&opts.metrics, "metrics", false, "Print request metrics to stderr (chars, bytes, duration, etc.)")
 	cmd.Flags().DurationVar(&opts.timeout, "timeout", 0, "Maximum time for TTS generation (0 disables sag's internal timeout; SAG_TIMEOUT)")
+	cmd.Flags().DurationVar(&opts.keepAlive, "keep-alive", 0, "Keep a fresh ChatGPT voice session ready for this long after use (Unix, maximum 5m)")
 	cmd.Flags().StringVar(&opts.player, "player", "auto", "Audio backend: auto (oto for OpenAI/ChatGPT streaming; otherwise afplay on macOS, oto elsewhere), afplay, oto (SAG_PLAYER)")
 	cmd.Flags().StringVarP(&opts.inputFile, "input-file", "f", "", "Read text from file (use '-' for stdin), matching macOS say -f")
 	cmd.Flags().Bool("progress", false, "Accepted for macOS say compatibility (no-op)")
