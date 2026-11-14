@@ -92,7 +92,9 @@ Realtime API. Authentication lives in `~/.config/sag/chatgpt`; sag never imports
 or replaces your normal Codex login. Existing provider selection stays unchanged.
 
 Playback streams through Oto as audio arrives; output is 24 kHz mono WAV. Use
-`--no-stream` or `--player afplay` for buffered playback. Requests are limited to
+`--no-stream` or `--player afplay` for buffered playback. Streaming uses a 100 ms
+player prebuffer; a fresh account connection still adds startup latency.
+`--metrics` includes time to the first PCM chunk during streaming. Requests are limited to
 3,500 UTF-8 bytes to avoid native speech truncation. Model, speed, and voice-tuning
 flags are unsupported. The default timeout is 90 seconds. As with other generative
 voices, review narration for wording changes and disclose that it is AI-generated.

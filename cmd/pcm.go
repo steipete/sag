@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/steipete/sag/internal/audio"
@@ -45,7 +47,18 @@ func streamPCMAndPlay(ctx context.Context, opts speakOptions, synthesize pcmSynt
 	}
 	done := make(chan outcome, 1)
 	go func() {
-		result, err := synthesize(ctx, func(pcm []byte) error { _, err := writer.Write(pcm); return err })
+		start := time.Now()
+		first := true
+		result, err := synthesize(ctx, func(pcm []byte) error {
+			if first && len(pcm) > 0 {
+				first = false
+				if opts.metrics {
+					fmt.Fprintf(os.Stderr, "metrics: first_pcm=%s\n", time.Since(start).Truncate(time.Millisecond))
+				}
+			}
+			_, err := writer.Write(pcm)
+			return err
+		})
 		_ = writer.CloseWithError(err)
 		done <- outcome{result, err}
 	}()

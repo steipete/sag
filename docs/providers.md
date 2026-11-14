@@ -44,9 +44,13 @@ with startup context disabled. The input track contains generated silence; sag
 does not record the microphone.
 
 Playback streams decoded 24 kHz mono PCM through Oto as audio arrives, skipping
-startup silence. Connection setup still takes time, but playback no longer waits
+startup silence and using a 100 ms player prebuffer. The input audio clock starts
+as soon as the WebRTC answer is applied, without waiting for the data channel.
+Connection setup still takes time, but playback no longer waits
 for the whole narration. `--no-stream` or `--player afplay` buffers before playback;
 explicit `--stream --player afplay` is rejected. File-only output is buffered.
+`--metrics` reports `first_pcm` when streaming audio first becomes available;
+this excludes voice lookup and is not a measurement at the physical speaker.
 Sag saves a WAV only after a completed transcript, drained audio tail, and
 successful playback (when enabled). Failed synthesis or playback preserves any
 existing output file. Input is capped at 3,500 UTF-8 bytes to avoid native

@@ -11,6 +11,8 @@
 - Warn when OpenAI narration transcripts differ from the input or are unavailable, with guidance to review the audio before sharing or relying on it, without exposing either text.
 
 ### Fixed
+
+- Reduce streaming PCM player startup buffering from 500 ms to 100 ms and start the ChatGPT WebRTC audio clock before the data channel opens.
 - Avoid a blocked writer when buffered playback fails, honor cancellation while waiting for Oto startup, and report Oto playback errors.
 
 ## 0.4.5 - 2026-10-23

@@ -377,11 +377,6 @@ func (c *Client) Synthesize(ctx context.Context, text, voice string, onPCM func(
 			break
 		}
 	}
-	select {
-	case <-ready:
-	case <-ctx.Done():
-		return Result{}, ctx.Err()
-	}
 	// GPT-Live advances on an active input stream. Pion's valid 20 ms Opus
 	// silence frame supplies the clock without recording a microphone.
 	go func() {
@@ -399,6 +394,11 @@ func (c *Client) Synthesize(ctx context.Context, text, voice string, onPCM func(
 			}
 		}
 	}()
+	select {
+	case <-ready:
+	case <-ctx.Done():
+		return Result{}, ctx.Err()
+	}
 	// An open SCTP channel does not imply that the voice model is initialized.
 	// Wait for its application-level acknowledgement before appending speech.
 	select {

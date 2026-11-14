@@ -40,14 +40,14 @@ func StreamViaOto(ctx context.Context, r io.Reader) error {
 		if err != nil {
 			return fmt.Errorf("decode wav: %w", err)
 		}
-		return playPCM(ctx, bytes.NewReader(wav.data), wav.sampleRate, wav.channels)
+		return playPCM(ctx, bytes.NewReader(wav.data), wav.sampleRate, wav.channels, 0)
 	}
 
 	decoder, err := mp3.NewDecoder(reader)
 	if err != nil {
 		return fmt.Errorf("decode mp3: %w", err)
 	}
-	return playPCM(ctx, decoder, decoder.SampleRate(), 2)
+	return playPCM(ctx, decoder, decoder.SampleRate(), 2, 0)
 }
 
 // StreamPCM16 plays signed little-endian PCM without waiting for a WAV file.
@@ -56,10 +56,10 @@ func StreamPCM16(ctx context.Context, r io.ReadCloser, sampleRate, channelCount 
 	defer func() { _ = r.Close() }()
 	stop := context.AfterFunc(ctx, func() { _ = r.Close() })
 	defer stop()
-	return playPCM(ctx, r, sampleRate, channelCount)
+	return playPCM(ctx, r, sampleRate, channelCount, 100*time.Millisecond)
 }
 
-func playPCM(ctx context.Context, pcm io.Reader, sampleRate, channelCount int) error {
+func playPCM(ctx context.Context, pcm io.Reader, sampleRate, channelCount int, prebuffer time.Duration) error {
 	audioCtx, ready, err := getAudioContext(sampleRate, channelCount, oto.FormatSignedInt16LE)
 	if err != nil {
 		return fmt.Errorf("audio context: %w", err)
@@ -69,6 +69,11 @@ func playPCM(ctx context.Context, pcm io.Reader, sampleRate, channelCount int) e
 	}
 
 	player := audioCtx.NewPlayer(pcm)
+	if prebuffer > 0 {
+		// Oto fills its source buffer before Play returns. Its 500 ms default
+		// delays live speech; retain 100 ms of jitter tolerance for streaming PCM.
+		player.SetBufferSize(int(int64(sampleRate*channelCount*2) * int64(prebuffer) / int64(time.Second)))
+	}
 	player.Play()
 
 	return waitForPlayback(ctx, player)
