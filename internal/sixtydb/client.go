@@ -426,56 +426,9 @@ func validateAudioFormat(requested string, data []byte) error {
 }
 
 func wrapPCM16LEWAV(pcm []byte, sampleRate int) ([]byte, error) {
-	if len(pcm) == 0 {
-		return nil, errors.New("empty PCM audio")
-	}
-	if len(pcm)%2 != 0 {
-		return nil, errors.New("PCM audio has an incomplete 16-bit sample")
-	}
-	if sampleRate <= 0 {
-		return nil, errors.New("invalid PCM sample rate")
-	}
-
-	const (
-		headerSize    = 44
-		channelCount  = 1
-		bitsPerSample = 16
-	)
-	if uint64(len(pcm)) > uint64(^uint32(0))-headerSize {
-		return nil, errors.New("PCM audio is too large for WAV")
-	}
-
-	dataSize := uint32(len(pcm))
-	byteRate := uint32(sampleRate * channelCount * bitsPerSample / 8)
-	blockAlign := uint16(channelCount * bitsPerSample / 8)
-	wav := make([]byte, headerSize+len(pcm))
-	copy(wav[0:4], "RIFF")
-	putUint32LE(wav[4:8], 36+dataSize)
-	copy(wav[8:12], "WAVE")
-	copy(wav[12:16], "fmt ")
-	putUint32LE(wav[16:20], 16)
-	putUint16LE(wav[20:22], 1)
-	putUint16LE(wav[22:24], channelCount)
-	putUint32LE(wav[24:28], uint32(sampleRate))
-	putUint32LE(wav[28:32], byteRate)
-	putUint16LE(wav[32:34], blockAlign)
-	putUint16LE(wav[34:36], bitsPerSample)
-	copy(wav[36:40], "data")
-	putUint32LE(wav[40:44], dataSize)
+	wav := make([]byte, 44+len(pcm))
 	copy(wav[44:], pcm)
-	return wav, nil
-}
-
-func putUint16LE(dst []byte, value uint16) {
-	dst[0] = byte(value)
-	dst[1] = byte(value >> 8)
-}
-
-func putUint32LE(dst []byte, value uint32) {
-	dst[0] = byte(value)
-	dst[1] = byte(value >> 8)
-	dst[2] = byte(value >> 16)
-	dst[3] = byte(value >> 24)
+	return tts.FinalizePCM16WAV(wav, sampleRate)
 }
 
 func decodeBase64Audio(encoded string, limit int, label string) ([]byte, error) {

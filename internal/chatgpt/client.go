@@ -179,22 +179,10 @@ func (r *recording) wav() ([]byte, error) {
 	end = min(len(r.samples), end+sampleRate/10)
 	samples := r.samples[start:end]
 	wav := make([]byte, 44+len(samples)*2)
-	copy(wav, "RIFF")
-	binary.LittleEndian.PutUint32(wav[4:], uint32(len(wav)-8))
-	copy(wav[8:], "WAVEfmt ")
-	binary.LittleEndian.PutUint32(wav[16:], 16)
-	binary.LittleEndian.PutUint16(wav[20:], 1)
-	binary.LittleEndian.PutUint16(wav[22:], 1)
-	binary.LittleEndian.PutUint32(wav[24:], sampleRate)
-	binary.LittleEndian.PutUint32(wav[28:], sampleRate*2)
-	binary.LittleEndian.PutUint16(wav[32:], 2)
-	binary.LittleEndian.PutUint16(wav[34:], 16)
-	copy(wav[36:], "data")
-	binary.LittleEndian.PutUint32(wav[40:], uint32(len(samples)*2))
 	for i, sample := range samples {
 		binary.LittleEndian.PutUint16(wav[44+i*2:], uint16(sample))
 	}
-	return wav, nil
+	return tts.FinalizePCM16WAV(wav, sampleRate)
 }
 
 func realtimeError(m rpcMessage) error {

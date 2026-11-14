@@ -4,7 +4,6 @@ package openai
 import (
 	"context"
 	"encoding/base64"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"net/http"
@@ -245,7 +244,8 @@ func (c *Client) Synthesize(ctx context.Context, req TTSRequest, onPCM func([]by
 			if !audioDone || len(wav) == 44 || (len(wav)-44)%2 != 0 {
 				return Result{}, errors.New("OpenAI returned missing, incomplete, or unaligned PCM audio")
 			}
-			return Result{Audio: finalizeWAV(wav), Transcript: transcript}, nil
+			audio, err := tts.FinalizePCM16WAV(wav, sampleRate)
+			return Result{Audio: audio, Transcript: transcript}, err
 		case "error":
 			message := strings.ReplaceAll(event.Error.Message, c.apiKey, "[redacted]")
 			return Result{}, fmt.Errorf("OpenAI Realtime: %s", message)
@@ -254,22 +254,6 @@ func (c *Client) Synthesize(ctx context.Context, req TTSRequest, onPCM func([]by
 			return Result{}, fmt.Errorf("send OpenAI Realtime request: %w", err)
 		}
 	}
-}
-
-func finalizeWAV(wav []byte) []byte {
-	copy(wav, "RIFF")
-	binary.LittleEndian.PutUint32(wav[4:], uint32(len(wav)-8))
-	copy(wav[8:], "WAVEfmt ")
-	binary.LittleEndian.PutUint32(wav[16:], 16)
-	binary.LittleEndian.PutUint16(wav[20:], 1)
-	binary.LittleEndian.PutUint16(wav[22:], 1)
-	binary.LittleEndian.PutUint32(wav[24:], sampleRate)
-	binary.LittleEndian.PutUint32(wav[28:], sampleRate*2)
-	binary.LittleEndian.PutUint16(wav[32:], 2)
-	binary.LittleEndian.PutUint16(wav[34:], 16)
-	copy(wav[36:], "data")
-	binary.LittleEndian.PutUint32(wav[40:], uint32(len(wav)-44))
-	return wav
 }
 
 func responseRequest(req TTSRequest) map[string]any {

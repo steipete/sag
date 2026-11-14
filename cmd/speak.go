@@ -67,9 +67,6 @@ func init() {
 		Short: "Speak the provided text using the configured TTS provider",
 		Long:  "If no text argument is provided, the command reads from stdin.\n\nTip: run `sag prompting` for model-specific prompting tips and recommended flag combinations.",
 		Args:  cobra.ArbitraryArgs,
-		PreRunE: func(_ *cobra.Command, _ []string) error {
-			return ensureProviderConfigured()
-		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			provider, err := selectProvider()
 			if err != nil {

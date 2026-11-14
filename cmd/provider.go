@@ -32,48 +32,27 @@ type activeProvider struct {
 	deepgram   *deepgram.Client
 }
 
-// resolveSixtyDBKey resolves the 60db API key from its dedicated env vars.
-// Order: SIXTYDB_API_KEY, then SIXTYDB_API_KEY_FILE.
-func resolveSixtyDBKey() (string, error) {
-	if key := strings.TrimSpace(os.Getenv("SIXTYDB_API_KEY")); key != "" {
+func resolveProviderKey(provider, env string) (string, error) {
+	if key := strings.TrimSpace(os.Getenv(env)); key != "" {
 		return key, nil
 	}
-	if path := strings.TrimSpace(os.Getenv("SIXTYDB_API_KEY_FILE")); path != "" {
+	if path := strings.TrimSpace(os.Getenv(env + "_FILE")); path != "" {
 		data, err := os.ReadFile(path)
 		if err != nil {
-			return "", fmt.Errorf("read 60db api key file: %w", err)
+			return "", fmt.Errorf("read %s api key file: %w", provider, err)
 		}
 		key := strings.TrimSpace(string(data))
 		if key == "" {
-			return "", fmt.Errorf("60db api key file %q is empty", path)
+			return "", fmt.Errorf("%s api key file %q is empty", provider, path)
 		}
 		return key, nil
 	}
 	return "", nil
 }
 
-func ensureProviderConfigured() error {
-	_, err := selectProvider()
-	return err
-}
-
-func resolveOpenAIKey() (string, error) {
-	if key := strings.TrimSpace(os.Getenv("OPENAI_API_KEY")); key != "" {
-		return key, nil
-	}
-	if path := strings.TrimSpace(os.Getenv("OPENAI_API_KEY_FILE")); path != "" {
-		data, err := os.ReadFile(path)
-		if err != nil {
-			return "", fmt.Errorf("read OpenAI api key file: %w", err)
-		}
-		key := strings.TrimSpace(string(data))
-		if key == "" {
-			return "", fmt.Errorf("OpenAI api key file %q is empty", path)
-		}
-		return key, nil
-	}
-	return "", nil
-}
+func resolveSixtyDBKey() (string, error)  { return resolveProviderKey("60db", "SIXTYDB_API_KEY") }
+func resolveOpenAIKey() (string, error)   { return resolveProviderKey("OpenAI", "OPENAI_API_KEY") }
+func resolveDeepgramKey() (string, error) { return resolveProviderKey("deepgram", "DEEPGRAM_API_KEY") }
 
 func selectProvider() (activeProvider, error) {
 	selected := strings.ToLower(strings.TrimSpace(cfg.Provider))

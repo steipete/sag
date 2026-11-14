@@ -85,7 +85,6 @@ func (c *Client) SearchVoices(ctx context.Context, search string, limit int) ([]
 	if len(data) > 4<<20 {
 		return nil, errors.New("deepgram: voice catalog exceeds 4 MiB")
 	}
-	// Decode a named wire type so the public voice type stays provider-neutral.
 	var wire struct {
 		TTS []struct {
 			Name          string   `json:"name"`
