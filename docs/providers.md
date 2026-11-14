@@ -44,7 +44,8 @@ with startup context disabled. The input track contains generated silence; sag
 does not record the microphone.
 
 Playback streams decoded 24 kHz mono PCM through Oto as audio arrives, skipping
-startup silence and using a 100 ms player prebuffer. The input audio clock starts
+startup silence and using a 250 ms player prebuffer to absorb delivery jitter
+and cover the audio backend's render blocks. The input audio clock starts
 as soon as the WebRTC answer is applied, without waiting for the data channel.
 Connection setup still takes time, but playback no longer waits
 for the whole narration. `--no-stream` or `--player afplay` buffers before playback;

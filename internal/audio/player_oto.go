@@ -56,7 +56,7 @@ func StreamPCM16(ctx context.Context, r io.ReadCloser, sampleRate, channelCount 
 	defer func() { _ = r.Close() }()
 	stop := context.AfterFunc(ctx, func() { _ = r.Close() })
 	defer stop()
-	return playPCM(ctx, r, sampleRate, channelCount, 100*time.Millisecond)
+	return playPCM(ctx, r, sampleRate, channelCount, 250*time.Millisecond)
 }
 
 func playPCM(ctx context.Context, pcm io.Reader, sampleRate, channelCount int, prebuffer time.Duration) error {
@@ -70,8 +70,9 @@ func playPCM(ctx context.Context, pcm io.Reader, sampleRate, channelCount int, p
 
 	player := audioCtx.NewPlayer(pcm)
 	if prebuffer > 0 {
-		// Oto fills its source buffer before Play returns. Its 500 ms default
-		// delays live speech; retain 100 ms of jitter tolerance for streaming PCM.
+		// Oto fills this buffer before rendering. At 24 kHz mono its macOS
+		// backend consumes 128 ms per callback; 100 ms underflows even without
+		// network jitter. Keep a reserve without the default 500 ms startup cost.
 		player.SetBufferSize(int(int64(sampleRate*channelCount*2) * int64(prebuffer) / int64(time.Second)))
 	}
 	player.Play()
