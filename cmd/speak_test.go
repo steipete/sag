@@ -137,6 +137,31 @@ func TestApplyRateAndSpeedInvalidSpeed(t *testing.T) {
 	}
 }
 
+func TestApplyRateAndSpeedAllowsEndpoints(t *testing.T) {
+	for _, speed := range []float64{0.5, 2.0} {
+		opts := &speakOptions{speed: speed}
+		if err := applyRateAndSpeed(opts); err != nil {
+			t.Fatalf("speed %v: %v", speed, err)
+		}
+		if opts.speed != speed {
+			t.Fatalf("speed changed from %v to %v", speed, opts.speed)
+		}
+	}
+	if err := applyRateAndSpeed(&speakOptions{speed: 0.49}); err == nil {
+		t.Fatal("expected error below 0.5")
+	}
+	if err := applyRateAndSpeed(&speakOptions{speed: 2.01}); err == nil {
+		t.Fatal("expected error above 2.0")
+	}
+	opts := &speakOptions{rateWPM: 2 * defaultWPM}
+	if err := applyRateAndSpeed(opts); err != nil {
+		t.Fatalf("rate %d: %v", opts.rateWPM, err)
+	}
+	if opts.speed != 2 {
+		t.Fatalf("mapped speed = %v, want 2", opts.speed)
+	}
+}
+
 func TestResolveVoiceDefaultsToFirst(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		if _, err := w.Write([]byte(`{"voices":[{"voice_id":"id1","name":"Alpha","category":"premade"},{"voice_id":"id2","name":"Beta","category":"premade"}]}`)); err != nil {
