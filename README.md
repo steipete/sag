@@ -159,7 +159,7 @@ Key flags (subset):
 - `--stream/--no-stream` stream while generating (default on)
 - `--latency-tier` 0–4 lower latency tiers
 - `--play/--no-play` control speaker playback
-- `--player auto|afplay|oto` choose playback backend (`auto` uses `afplay` on macOS and `oto` elsewhere; also configurable via `SAG_PLAYER`)
+- `--player auto|afplay|oto` choose playback backend (`auto` uses Oto for streamed MP3/PCM; other playback uses `afplay` on macOS and Oto elsewhere; also configurable via `SAG_PLAYER`)
 - `--timeout` maximum TTS generation time, e.g. `--timeout 5m`; `0` means no internal timeout (default, also configurable via `SAG_TIMEOUT`)
 - `--metrics` print basic stats to stderr
 

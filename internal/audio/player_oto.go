@@ -47,7 +47,7 @@ func StreamViaOto(ctx context.Context, r io.Reader) error {
 	if err != nil {
 		return fmt.Errorf("decode mp3: %w", err)
 	}
-	return playPCM(ctx, decoder, decoder.SampleRate(), 2, 0)
+	return playPCM(ctx, decoder, decoder.SampleRate(), 2, 250*time.Millisecond)
 }
 
 // StreamPCM16 plays signed little-endian PCM without waiting for a WAV file.

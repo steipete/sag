@@ -77,7 +77,7 @@ The non-streaming path is simpler: read the full body, write the file, then play
 - `afplay` — shells out to macOS `afplay`. Buffers the entire stream to a temp file (afplay needs the full WAV header for PCM). Uses `os.CommandContext` so cancellation works.
 - `oto` — pure-Go MP3 or PCM16 WAV decoder pipeline into `oto.Player`. MP3 is decoded chunk-by-chunk; WAV playback uses the validated complete file.
 
-The `auto` mode picks `afplay` on macOS and `oto` everywhere else. Override with `--player` or `SAG_PLAYER`.
+The `auto` mode uses Oto for ElevenLabs streamed MP3 and OpenAI/ChatGPT streamed PCM. Other playback uses `afplay` on macOS and Oto elsewhere. Override with `--player` or `SAG_PLAYER`.
 
 ## Voice resolution
 

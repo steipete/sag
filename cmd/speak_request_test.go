@@ -108,6 +108,31 @@ func TestBuildElevenLabsTTSRequest_SpeakerBoostSetsJSONKey(t *testing.T) {
 	}
 }
 
+func TestElevenLabsStreamingPlayer(t *testing.T) {
+	for _, tc := range []struct {
+		name, format, player, env, want string
+		play, stream                    bool
+	}{
+		{"streamed MP3", "mp3_44100_128", "auto", "", "oto", true, true},
+		{"default choice", "mp3_44100_128", "", "", "oto", true, true},
+		{"explicit afplay", "mp3_44100_128", "afplay", "", "afplay", true, true},
+		{"environment afplay", "mp3_44100_128", "auto", "afplay", "auto", true, true},
+		{"file only", "mp3_44100_128", "auto", "", "auto", false, true},
+		{"buffered MP3", "mp3_44100_128", "auto", "", "auto", true, false},
+		{"Opus", "opus_48000_64", "auto", "", "auto", true, true},
+		{"PCM", "pcm_44100", "auto", "", "auto", true, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("SAG_PLAYER", tc.env)
+			opts := speakOptions{outputFmt: tc.format, player: tc.player, play: tc.play, stream: tc.stream}
+			prepareElevenLabsPlayback(&opts)
+			if opts.player != tc.want {
+				t.Fatalf("player=%q, want %q", opts.player, tc.want)
+			}
+		})
+	}
+}
+
 func TestBuildElevenLabsTTSRequest_InvalidNormalize(t *testing.T) {
 	cmd, opts := newSpeakTestCommand(t)
 	if err := cmd.Flags().Parse([]string{"--normalize", "wat"}); err != nil {

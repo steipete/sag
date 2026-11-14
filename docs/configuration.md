@@ -77,7 +77,7 @@ Interrupted ElevenLabs streaming can leave a partial file. OpenAI writes files o
 
 | Value | Behaviour |
 | --- | --- |
-| `auto` (default) | Oto for OpenAI streaming; otherwise `afplay` on macOS and `oto` elsewhere. |
+| `auto` (default) | Oto for ElevenLabs streamed MP3 and OpenAI/ChatGPT streamed PCM; otherwise `afplay` on macOS and Oto elsewhere. |
 | `afplay` | macOS only; routes through CoreAudio so AirPlay and Bluetooth zones work. |
 | `oto` | Cross-platform MP3/WAV decoder + `oto`. |
 

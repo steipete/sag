@@ -176,6 +176,7 @@ func init() {
 					return result.Audio, err
 				}
 			case providerElevenLabs:
+				prepareElevenLabsPlayback(&opts)
 				payload, err := buildElevenLabsTTSRequest(cmd, opts, text)
 				if err != nil {
 					return err
@@ -274,7 +275,7 @@ func init() {
 	cmd.Flags().BoolVar(&opts.metrics, "metrics", false, "Print request metrics to stderr (chars, bytes, duration, etc.)")
 	cmd.Flags().DurationVar(&opts.timeout, "timeout", 0, "Maximum time for TTS generation (0 disables sag's internal timeout; SAG_TIMEOUT)")
 	cmd.Flags().DurationVar(&opts.keepAlive, "keep-alive", 0, "Keep a fresh ChatGPT voice session ready for this long after use (Unix, maximum 5m)")
-	cmd.Flags().StringVar(&opts.player, "player", "auto", "Audio backend: auto (oto for OpenAI/ChatGPT streaming; otherwise afplay on macOS, oto elsewhere), afplay, oto (SAG_PLAYER)")
+	cmd.Flags().StringVar(&opts.player, "player", "auto", "Audio backend: auto (oto for streamed MP3/PCM; otherwise afplay on macOS, oto elsewhere), afplay, oto (SAG_PLAYER)")
 	cmd.Flags().StringVarP(&opts.inputFile, "input-file", "f", "", "Read text from file (use '-' for stdin), matching macOS say -f")
 	cmd.Flags().Bool("progress", false, "Accepted for macOS say compatibility (no-op)")
 	cmd.Flags().String("network-send", "", "Accepted for macOS say compatibility (not implemented)")
@@ -287,6 +288,15 @@ func init() {
 	cmd.Flags().Int("quality", 0, "Accepted for macOS say compatibility (not implemented)")
 
 	rootCmd.AddCommand(cmd)
+}
+
+func prepareElevenLabsPlayback(opts *speakOptions) {
+	player := resolvedPlayer(opts.player)
+	if opts.play && opts.stream && strings.HasPrefix(opts.outputFmt, "mp3_") && (player == "" || player == "auto") {
+		// afplay waits for the complete file. Use the incremental decoder for
+		// streamed MP3, while preserving explicit routing and other codecs.
+		opts.player = "oto"
+	}
 }
 
 func applyCompatibilityFlags(cmd *cobra.Command, opts *speakOptions) error {

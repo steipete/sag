@@ -74,11 +74,11 @@ Tiers 3 and 4 are noticeable on long prompts; on short ones the win is mostly co
 
 ## Player backends
 
-OpenAI streaming uses `oto` by default. Other playback uses `afplay` on macOS and a pure-Go MP3/WAV decoder with `oto` on Linux/Windows. Pick explicitly via `--player` or `SAG_PLAYER`.
+ElevenLabs streamed MP3 and OpenAI/ChatGPT streamed PCM use Oto by default with a 250 ms source reserve. Other playback uses `afplay` on macOS and Oto on Linux/Windows. Pick explicitly via `--player` or `SAG_PLAYER`; an explicit `afplay` choice retains its full-file buffering.
 
 | Backend | Platforms | Notes |
 | --- | --- | --- |
-| `auto` | all | OpenAI streaming → `oto`; otherwise macOS → `afplay`, others → `oto`. |
+| `auto` | all | Streamed MP3/PCM → Oto; otherwise macOS → `afplay`, others → Oto. |
 | `afplay` | macOS | Routes through CoreAudio so AirPlay, Bluetooth zones, and the menubar volume all work as expected. |
 | `oto` | macOS, Linux, Windows | Pure-Go MP3 and PCM16 WAV decode + cross-platform output. Good fallback on macOS when `afplay` misbehaves (rare). |
 
