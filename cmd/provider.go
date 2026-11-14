@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/steipete/sag/internal/chatgpt"
+	"github.com/steipete/sag/internal/deepgram"
 	"github.com/steipete/sag/internal/elevenlabs"
 	"github.com/steipete/sag/internal/openai"
 	"github.com/steipete/sag/internal/sixtydb"
@@ -17,6 +18,7 @@ const (
 	providerSixtyDB    = "60db"
 	providerOpenAI     = "openai"
 	providerChatGPT    = "chatgpt"
+	providerDeepgram   = "deepgram"
 )
 
 type activeProvider struct {
@@ -27,6 +29,7 @@ type activeProvider struct {
 	sixtydb    *sixtydb.Client
 	openai     *openai.Client
 	chatgpt    *chatgpt.Client
+	deepgram   *deepgram.Client
 }
 
 // resolveSixtyDBKey resolves the 60db API key from its dedicated env vars.
@@ -82,8 +85,20 @@ func selectProvider() (activeProvider, error) {
 		client, err := chatgpt.NewClient()
 		return activeProvider{name: providerChatGPT, voices: client, chatgpt: client}, err
 	}
+	// New providers are explicit so an ambient key cannot change existing commands.
+	if selected == providerDeepgram {
+		key, err := resolveDeepgramKey()
+		if err != nil {
+			return activeProvider{}, err
+		}
+		if key == "" {
+			return activeProvider{}, fmt.Errorf("missing API key for Deepgram (set DEEPGRAM_API_KEY or DEEPGRAM_API_KEY_FILE)")
+		}
+		client := deepgram.NewClient(key, cfg.BaseURL)
+		return activeProvider{name: providerDeepgram, voices: client, deepgram: client}, nil
+	}
 	if selected != "" && selected != providerElevenLabs && selected != providerSixtyDB && selected != providerOpenAI {
-		return activeProvider{}, fmt.Errorf("unknown provider %q (choose elevenlabs, 60db, openai, or chatgpt)", selected)
+		return activeProvider{}, fmt.Errorf("unknown provider %q (choose elevenlabs, 60db, openai, chatgpt, or deepgram)", selected)
 	}
 	var active activeProvider
 	for _, candidate := range []struct {

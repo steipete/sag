@@ -1,6 +1,6 @@
 # Providers
 
-`sag` supports ElevenLabs, 60db, OpenAI Realtime, and experimental ChatGPT account voices. Use `--provider elevenlabs|60db|openai|chatgpt` for explicit selection. ChatGPT uses a separate account login and is never auto-selected. Automatic selection preserves existing ElevenLabs/60db commands and uses OpenAI only when neither existing provider is configured.
+`sag` supports ElevenLabs, 60db, OpenAI Realtime, Deepgram Aura, and experimental ChatGPT account voices. Use `--provider elevenlabs|60db|openai|chatgpt|deepgram` for explicit selection. ChatGPT uses a separate account login. ChatGPT and Deepgram are never auto-selected. Automatic selection preserves existing ElevenLabs/60db commands and uses OpenAI only when neither existing provider is configured.
 
 ## Selecting a provider
 
@@ -15,6 +15,27 @@
 | none | error |
 
 Use `--base-url` to override an API-key provider's host. It is not supported for ChatGPT account authentication.
+
+## Deepgram Aura
+
+Set `DEEPGRAM_API_KEY` or `DEEPGRAM_API_KEY_FILE`, then select `--provider deepgram`.
+An ambient Deepgram key never changes automatic provider selection. The legacy
+`--api-key` / `--api-key-file` flags remain ElevenLabs-only.
+
+```sh
+sag --provider deepgram "Hello from Thalia"
+sag --provider deepgram -v aura-2-apollo-en "Hello from Apollo"
+sag voices --provider deepgram --search thalia
+sag --provider deepgram -o hello.wav "Save this narration"
+```
+
+- Uses [Aura HTTP synthesis](https://developers.deepgram.com/reference/text-to-speech/speak-request) at `https://api.deepgram.com/v1/speak`. `--base-url` accepts an HTTP(S) API root including `/v1`.
+- Default voice: `aura-2-thalia-en`. Use `--voice` for a name or canonical model ID; `--voice-id` passes an ID directly without catalog lookup. `--model-id` is unsupported because Aura combines voice and model in one ID.
+- `voices` reads the [current public model catalog](https://developers.deepgram.com/reference/manage/models/list), including language, accent, descriptive tags, and preview URLs. Flux models use another endpoint and are excluded.
+- Requests [little-endian PCM16](https://developers.deepgram.com/docs/tts-encoding) at 24 kHz with `container=none`. Playback streams through Oto with a 250 ms reserve. `--no-stream` or `--player afplay` buffers; explicit `--stream --player afplay` is rejected.
+- Output is mono WAV only. Completed synthesis and successful streamed playback are required before saving; errors preserve existing files. Empty audio, partial samples, unexpected content types, and responses over 64 MiB are rejected.
+- `--speed` / `--rate` support 0.7–1.5× speed, subject to the model's language support. ElevenLabs tuning flags, `--lang`, and `--latency-tier` are unsupported.
+- `--timeout` / `SAG_TIMEOUT` cancels in-flight HTTP reads. HTTP errors expose the status without echoing the response body or credentials.
 
 ## ChatGPT account (experimental)
 

@@ -14,6 +14,7 @@ import (
 
 	"github.com/steipete/sag/internal/audio"
 	"github.com/steipete/sag/internal/chatgpt"
+	"github.com/steipete/sag/internal/deepgram"
 	"github.com/steipete/sag/internal/elevenlabs"
 	"github.com/steipete/sag/internal/openai"
 	"github.com/steipete/sag/internal/sixtydb"
@@ -107,6 +108,10 @@ func init() {
 				}
 			}
 
+			if provider.name == providerDeepgram && voiceInput == "" {
+				voiceInput, forceVoiceID = deepgram.DefaultVoice, true
+			}
+
 			voiceID, err := resolveVoice(cmd.Context(), provider.voices, voiceInput, forceVoiceID)
 			if err != nil {
 				return err
@@ -153,6 +158,12 @@ func init() {
 				}
 			}
 
+			if provider.name == providerDeepgram {
+				if err := prepareDeepgramOptions(cmd, &opts); err != nil {
+					return err
+				}
+			}
+
 			ctx, cancel, err := ttsContext(cmd.Context(), opts.timeout)
 			if err != nil {
 				return err
@@ -165,6 +176,10 @@ func init() {
 				synthesizePCM pcmSynthesizer
 			)
 			switch provider.name {
+			case providerDeepgram:
+				synthesizePCM = func(ctx context.Context, onPCM func([]byte) error) ([]byte, error) {
+					return provider.deepgram.Synthesize(ctx, text, opts.voiceID, opts.speed, onPCM)
+				}
 			case providerChatGPT:
 				synthesizePCM = func(ctx context.Context, onPCM func([]byte) error) ([]byte, error) {
 					result, err := provider.chatgpt.Synthesize(ctx, text, opts.voiceID, onPCM)

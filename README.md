@@ -1,4 +1,4 @@
-# sag 🗣️ — “Mac-style speech with ElevenLabs, 60db, or OpenAI”
+# sag 🗣️ — “Mac-style speech with ElevenLabs, 60db, OpenAI, or Deepgram”
 
 One-liner TTS that works like `say`: stream to speakers by default, list voices, or save audio files.
 
@@ -26,15 +26,16 @@ sudo apt install build-essential pkg-config libasound2-dev
 
 ## Configuration
 
-`sag` supports three API-key TTS providers and an experimental ChatGPT account provider:
+`sag` supports four API-key TTS providers and an experimental ChatGPT account provider:
 
 - **ElevenLabs** — `ELEVENLABS_API_KEY` (or `--api-key`, or `--api-key-file` / `ELEVENLABS_API_KEY_FILE` / `SAG_API_KEY_FILE`)
 - **OpenAI Realtime** — `OPENAI_API_KEY` (or `OPENAI_API_KEY_FILE`)
+- **Deepgram Aura** — explicit `--provider deepgram`, with `DEEPGRAM_API_KEY` (or `DEEPGRAM_API_KEY_FILE`).
 - **60db** (`api.60db.ai`) — `SIXTYDB_API_KEY` (or `SIXTYDB_API_KEY_FILE`)
 - **ChatGPT account** — explicit `--provider chatgpt`, with a separate sign-in and an installed Codex CLI.
 
 Selection rules:
-- `--provider elevenlabs|60db|openai` explicitly selects a provider.
+- `--provider elevenlabs|60db|openai|chatgpt|deepgram` explicitly selects a provider.
 - Otherwise, a configured ElevenLabs or 60db provider is used. Configuring both still requires explicit selection.
 - OpenAI is auto-selected only when neither ElevenLabs nor 60db is configured; ambient OpenAI credentials do not change existing commands.
 - No key set → error.
@@ -74,6 +75,21 @@ without printing either text. This ignores case and punctuation; number expansio
 and homophones can still produce warnings. Streaming may play changed words before
 the warning arrives. Tell listeners the voice is AI-generated.
 See [providers](docs/providers.md) for details.
+
+### Deepgram Aura voices
+
+```sh
+# With DEEPGRAM_API_KEY set:
+sag --provider deepgram "Hello from Thalia"
+sag --provider deepgram -v aura-2-apollo-en "Hello from Apollo"
+sag voices --provider deepgram --search thalia
+sag --provider deepgram -o hello.wav "Save a voice note"
+```
+
+Deepgram is always selected explicitly, so its key does not change existing
+commands. Aura audio streams as 24 kHz mono PCM through Oto; saved files are
+validated WAV. Thalia is the default voice. See [providers](docs/providers.md)
+for the supported flags and live voice catalog.
 
 ### ChatGPT account voices (experimental)
 

@@ -19,6 +19,7 @@ func resetProviderEnv(t *testing.T) {
 		"ELEVENLABS_API_KEY_FILE", "SAG_API_KEY_FILE",
 		"SIXTYDB_API_KEY", "SIXTYDB_API_KEY_FILE",
 		"OPENAI_API_KEY", "OPENAI_API_KEY_FILE",
+		"DEEPGRAM_API_KEY", "DEEPGRAM_API_KEY_FILE",
 	} {
 		t.Setenv(k, "")
 	}
