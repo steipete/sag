@@ -3,6 +3,7 @@
 ## 0.4.6 - Unreleased
 
 ### Added
+- Experimental ChatGPT account voice support, including Maple, via `--provider chatgpt` and a separate `sag login` flow that preserves existing Codex credentials and provider defaults.
 - OpenAI Realtime voice support with `OPENAI_API_KEY` / `OPENAI_API_KEY_FILE`, built-in voice selection, and validated WAV playback/output using `gpt-realtime-2.1-mini` by default.
 - Explicit `--provider` selection for environments with multiple provider credentials; ambient OpenAI keys preserve existing ElevenLabs/60db commands.
 - Stream OpenAI PCM playback through Oto while retaining validated WAV saves and buffered `afplay` playback.

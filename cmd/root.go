@@ -44,7 +44,7 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.PersistentFlags().StringVar(&cfg.Provider, "provider", "", "TTS provider: elevenlabs, 60db, or openai (default: auto-select from credentials)")
+	rootCmd.PersistentFlags().StringVar(&cfg.Provider, "provider", "", "TTS provider: elevenlabs, 60db, openai, or chatgpt (ChatGPT requires explicit selection)")
 	rootCmd.PersistentFlags().StringVar(&cfg.APIKey, "api-key", "", "ElevenLabs API key (or ELEVENLABS_API_KEY)")
 	rootCmd.PersistentFlags().StringVar(&cfg.APIKeyFile, "api-key-file", "", "Read ElevenLabs API key from file (or ELEVENLABS_API_KEY_FILE)")
 	rootCmd.PersistentFlags().StringVar(&cfg.BaseURL, "base-url", "", "Override the provider API base URL (empty = provider default)")

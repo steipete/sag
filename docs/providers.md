@@ -1,6 +1,6 @@
 # Providers
 
-`sag` supports ElevenLabs, 60db, and OpenAI Realtime. Use `--provider elevenlabs|60db|openai` for explicit selection; only that provider's key sources are read. Automatic selection preserves existing ElevenLabs/60db commands and uses OpenAI only when neither existing provider is configured.
+`sag` supports ElevenLabs, 60db, OpenAI Realtime, and experimental ChatGPT account voices. Use `--provider elevenlabs|60db|openai|chatgpt` for explicit selection. ChatGPT uses a separate account login and is never auto-selected. Automatic selection preserves existing ElevenLabs/60db commands and uses OpenAI only when neither existing provider is configured.
 
 ## Selecting a provider
 
@@ -14,7 +14,49 @@
 | ElevenLabs + 60db, with or without OpenAI | error unless `--provider` selects one |
 | none | error |
 
-Use `--base-url` to override the active provider host.
+Use `--base-url` to override an API-key provider's host. It is not supported for ChatGPT account authentication.
+
+## ChatGPT account (experimental)
+
+This provider uses the installed Codex CLI's experimental v3 WebRTC transport,
+tested with Codex 0.169.0. It exposes ChatGPT voices including Maple, Juniper,
+Spruce, Ember, Vale, Breeze, Arbor, Sol, and Cove. These are separate from the
+public OpenAI Realtime API voices. Account access is checked by the service;
+a local voice catalog does not establish entitlement.
+
+```sh
+sag login --provider chatgpt --device-auth
+sag voices --provider chatgpt
+sag --provider chatgpt -v maple "Hello from Maple"
+sag --provider chatgpt -v maple -o speech.wav "Save this narration"
+```
+
+The default credential directory is `~/.config/sag/chatgpt`. Override it with
+`SAG_CHATGPT_HOME`; it must be outside the normal Codex home, including symlinked
+paths. `SAG_CHATGPT_CODEX` selects the Codex executable (default: `codex` on PATH).
+The login uses OpenAI's own browser/device flow. Sag does not copy browser cookies,
+read the normal Codex account, change its configuration, or reuse API-key environment
+variables for voice requests. Keep this credential directory private.
+
+Only explicit `--provider chatgpt` commands use this sign-in. Existing API-key
+selection and configuration remain unchanged. Calls use an ephemeral Codex thread
+with startup context disabled. The input track contains generated silence; sag
+does not record the microphone.
+
+Playback is buffered. Sag decodes Opus into 24 kHz mono PCM and saves a WAV only
+after receiving a completed transcript and draining the audio tail. `--stream`
+is unsupported. Input is capped at 3,500 UTF-8 bytes to avoid native speech-append
+truncation. Split longer text into separate requests. The default timeout is
+90 seconds; `--timeout` and `SAG_TIMEOUT` override it.
+
+`--model-id`, `--speed`, `--rate`, voice-tuning flags, `--api-key`, `--api-key-file`,
+and `--base-url` are unsupported. Voice preview URLs are unavailable; use a short
+speak command instead of `voices --try`. Maple is the default voice.
+
+The model can alter narration. Sag uses the same transcript comparison warning
+as the OpenAI provider; review audio before relying on exact wording. Disclose
+that the voice is AI-generated. This transport may change with Codex releases;
+its reference contract is the [Codex v0.169.0 realtime protocol](https://github.com/openai/codex/blob/rust-v0.169.0/codex-rs/app-server-protocol/src/protocol/v2/realtime.rs).
 
 ## OpenAI Realtime
 

@@ -135,6 +135,11 @@ func init() {
 					return err
 				}
 			}
+			if provider.name == providerChatGPT {
+				if err := prepareChatGPTOptions(cmd, &opts); err != nil {
+					return err
+				}
+			}
 
 			ctx, cancel, err := ttsContext(cmd.Context(), opts.timeout)
 			if err != nil {
@@ -148,6 +153,16 @@ func init() {
 				synthesizeOpenAI openAISynthesizer
 			)
 			switch provider.name {
+			case providerChatGPT:
+				convertFunc = func(ctx context.Context) ([]byte, error) {
+					result, err := provider.chatgpt.Synthesize(ctx, text, opts.voiceID)
+					if err == nil {
+						if warning := openai.CheckTranscript(text, result.Transcript); warning != "" {
+							fmt.Fprintln(os.Stderr, "warning:", warning)
+						}
+					}
+					return result.Audio, err
+				}
 			case providerElevenLabs:
 				payload, err := buildElevenLabsTTSRequest(cmd, opts, text)
 				if err != nil {

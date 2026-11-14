@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/steipete/sag/internal/chatgpt"
 	"github.com/steipete/sag/internal/elevenlabs"
 	"github.com/steipete/sag/internal/openai"
 	"github.com/steipete/sag/internal/sixtydb"
@@ -15,6 +16,7 @@ const (
 	providerElevenLabs = "elevenlabs"
 	providerSixtyDB    = "60db"
 	providerOpenAI     = "openai"
+	providerChatGPT    = "chatgpt"
 )
 
 type activeProvider struct {
@@ -24,6 +26,7 @@ type activeProvider struct {
 	elevenlabs *elevenlabs.Client
 	sixtydb    *sixtydb.Client
 	openai     *openai.Client
+	chatgpt    *chatgpt.Client
 }
 
 // resolveSixtyDBKey resolves the 60db API key from its dedicated env vars.
@@ -71,8 +74,16 @@ func resolveOpenAIKey() (string, error) {
 
 func selectProvider() (activeProvider, error) {
 	selected := strings.ToLower(strings.TrimSpace(cfg.Provider))
+	// ChatGPT is always explicit; signing in must not alter existing defaults.
+	if selected == providerChatGPT {
+		if cfg.APIKey != "" || cfg.APIKeyFile != "" || cfg.BaseURL != "" {
+			return activeProvider{}, fmt.Errorf("ChatGPT uses its separate account login; --api-key, --api-key-file, and --base-url are not supported")
+		}
+		client, err := chatgpt.NewClient()
+		return activeProvider{name: providerChatGPT, voices: client, chatgpt: client}, err
+	}
 	if selected != "" && selected != providerElevenLabs && selected != providerSixtyDB && selected != providerOpenAI {
-		return activeProvider{}, fmt.Errorf("unknown provider %q (choose elevenlabs, 60db, or openai)", selected)
+		return activeProvider{}, fmt.Errorf("unknown provider %q (choose elevenlabs, 60db, openai, or chatgpt)", selected)
 	}
 	var active activeProvider
 	for _, candidate := range []struct {

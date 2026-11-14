@@ -26,11 +26,12 @@ sudo apt install build-essential pkg-config libasound2-dev
 
 ## Configuration
 
-`sag` supports three TTS providers:
+`sag` supports three API-key TTS providers and an experimental ChatGPT account provider:
 
 - **ElevenLabs** — `ELEVENLABS_API_KEY` (or `--api-key`, or `--api-key-file` / `ELEVENLABS_API_KEY_FILE` / `SAG_API_KEY_FILE`)
 - **OpenAI Realtime** — `OPENAI_API_KEY` (or `OPENAI_API_KEY_FILE`)
 - **60db** (`api.60db.ai`) — `SIXTYDB_API_KEY` (or `SIXTYDB_API_KEY_FILE`)
+- **ChatGPT account** — explicit `--provider chatgpt`, with a separate sign-in and an installed Codex CLI.
 
 Selection rules:
 - `--provider elevenlabs|60db|openai` explicitly selects a provider.
@@ -73,6 +74,28 @@ without printing either text. This ignores case and punctuation; number expansio
 and homophones can still produce warnings. Streaming may play changed words before
 the warning arrives. Tell listeners the voice is AI-generated.
 See [providers](docs/providers.md) for details.
+
+### ChatGPT account voices (experimental)
+
+Use ChatGPT voices such as Maple through Codex's native voice transport:
+
+```sh
+sag login --provider chatgpt --device-auth
+sag --provider chatgpt -v maple "Hello world"
+sag --provider chatgpt -v maple -o hello.wav "Save a voice note"
+sag voices --provider chatgpt
+```
+
+Requires Codex CLI 0.169.0 or a compatible release and a ChatGPT account with
+voice access. This experimental transport is separate from the public OpenAI
+Realtime API. Authentication lives in `~/.config/sag/chatgpt`; sag never imports
+or replaces your normal Codex login. Existing provider selection stays unchanged.
+
+Playback is buffered and output is 24 kHz mono WAV. Requests are limited to
+3,500 UTF-8 bytes to avoid native speech truncation. Model, speed, and voice-tuning
+flags are unsupported. The default timeout is 90 seconds. As with other generative
+voices, review narration for wording changes and disclose that it is AI-generated.
+See [providers](docs/providers.md#chatgpt-account-experimental) for configuration.
 
 ## Usage
 
