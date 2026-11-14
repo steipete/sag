@@ -148,14 +148,14 @@ func init() {
 			defer cancel()
 
 			var (
-				streamFunc       func(context.Context) (io.ReadCloser, error)
-				convertFunc      func(context.Context) ([]byte, error)
-				synthesizeOpenAI openAISynthesizer
+				streamFunc    func(context.Context) (io.ReadCloser, error)
+				convertFunc   func(context.Context) ([]byte, error)
+				synthesizePCM pcmSynthesizer
 			)
 			switch provider.name {
 			case providerChatGPT:
-				convertFunc = func(ctx context.Context) ([]byte, error) {
-					result, err := provider.chatgpt.Synthesize(ctx, text, opts.voiceID)
+				synthesizePCM = func(ctx context.Context, onPCM func([]byte) error) ([]byte, error) {
+					result, err := provider.chatgpt.Synthesize(ctx, text, opts.voiceID, onPCM)
 					if err == nil {
 						if warning := openai.CheckTranscript(text, result.Transcript); warning != "" {
 							fmt.Fprintln(os.Stderr, "warning:", warning)
@@ -176,17 +176,13 @@ func init() {
 				}
 			case providerOpenAI:
 				payload := openai.TTSRequest{Text: text, ModelID: opts.modelID, VoiceID: opts.voiceID, Speed: opts.speed}
-				synthesizeOpenAI = func(ctx context.Context, onPCM func([]byte) error) (openai.Result, error) {
+				synthesizePCM = func(ctx context.Context, onPCM func([]byte) error) ([]byte, error) {
 					result, err := provider.openai.Synthesize(ctx, payload, onPCM)
 					if err == nil {
 						if warning := openai.CheckTranscript(text, result.Transcript); warning != "" {
 							fmt.Fprintln(os.Stderr, "warning:", warning)
 						}
 					}
-					return result, err
-				}
-				convertFunc = func(ctx context.Context) ([]byte, error) {
-					result, err := synthesizeOpenAI(ctx, nil)
 					return result.Audio, err
 				}
 			case providerSixtyDB:
@@ -204,10 +200,14 @@ func init() {
 				return fmt.Errorf("unsupported provider %q", provider.name)
 			}
 
+			if synthesizePCM != nil {
+				convertFunc = func(ctx context.Context) ([]byte, error) { return synthesizePCM(ctx, nil) }
+			}
+
 			start := time.Now()
 			var bytes int64
-			if opts.stream && provider.name == providerOpenAI {
-				n, err := streamOpenAIAndPlay(ctx, opts, synthesizeOpenAI)
+			if opts.stream && synthesizePCM != nil {
+				n, err := streamPCMAndPlay(ctx, opts, synthesizePCM)
 				bytes = n
 				if err != nil {
 					return err
@@ -261,7 +261,7 @@ func init() {
 	cmd.Flags().StringVar(&opts.lang, "lang", "", "Language code (2-letter ISO 639-1; influences normalization; when set)")
 	cmd.Flags().BoolVar(&opts.metrics, "metrics", false, "Print request metrics to stderr (chars, bytes, duration, etc.)")
 	cmd.Flags().DurationVar(&opts.timeout, "timeout", 0, "Maximum time for TTS generation (0 disables sag's internal timeout; SAG_TIMEOUT)")
-	cmd.Flags().StringVar(&opts.player, "player", "auto", "Audio backend: auto (oto for OpenAI streaming; otherwise afplay on macOS, oto elsewhere), afplay, oto (SAG_PLAYER)")
+	cmd.Flags().StringVar(&opts.player, "player", "auto", "Audio backend: auto (oto for OpenAI/ChatGPT streaming; otherwise afplay on macOS, oto elsewhere), afplay, oto (SAG_PLAYER)")
 	cmd.Flags().StringVarP(&opts.inputFile, "input-file", "f", "", "Read text from file (use '-' for stdin), matching macOS say -f")
 	cmd.Flags().Bool("progress", false, "Accepted for macOS say compatibility (no-op)")
 	cmd.Flags().String("network-send", "", "Accepted for macOS say compatibility (not implemented)")

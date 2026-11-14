@@ -94,9 +94,11 @@ func (c *Client) GetVoice(ctx context.Context, id string) (tts.Voice, error) {
 
 type recording struct {
 	sync.Mutex
-	samples []int16
-	quiet   int
-	voiced  int
+	samples   []int16
+	quiet     int
+	voiced    int
+	sent      int
+	streaming bool
 }
 
 func (r *recording) append(samples []int16) error {
@@ -115,6 +117,33 @@ func (r *recording) append(samples []int16) error {
 		}
 	}
 	return nil
+}
+
+// writePCM reads from the bounded recording on the synthesis goroutine, so
+// a slow or failed player cannot block RTP decoding or hold the recording lock.
+func (r *recording) writePCM(onPCM func([]byte) error) error {
+	if onPCM == nil {
+		return nil
+	}
+	r.Lock()
+	if r.voiced == 0 || r.sent == len(r.samples) {
+		r.Unlock()
+		return nil
+	}
+	if !r.streaming {
+		for r.samples[r.sent] <= 50 && r.samples[r.sent] >= -50 {
+			r.sent++
+		}
+		r.sent = max(0, r.sent-sampleRate/10)
+		r.streaming = true
+	}
+	data := make([]byte, (len(r.samples)-r.sent)*2)
+	for i, sample := range r.samples[r.sent:] {
+		binary.LittleEndian.PutUint16(data[i*2:], uint16(sample))
+	}
+	r.sent = len(r.samples)
+	r.Unlock()
+	return onPCM(data)
 }
 
 func (r *recording) drained() bool {
@@ -173,8 +202,9 @@ func realtimeError(m rpcMessage) error {
 }
 
 // Synthesize renders one narration with the account-authenticated native voice
-// transport. Audio is buffered until the completed transcript and audio tail.
-func (c *Client) Synthesize(ctx context.Context, text, voice string) (Result, error) {
+// transport. onPCM receives PCM16 audio as it arrives; the final WAV is returned
+// only after the completed transcript and audio tail. A callback error stops synthesis.
+func (c *Client) Synthesize(ctx context.Context, text, voice string, onPCM func([]byte) error) (Result, error) {
 	if strings.TrimSpace(text) == "" {
 		return Result{}, errors.New("ChatGPT input text is empty")
 	}
@@ -403,6 +433,9 @@ func (c *Client) Synthesize(ctx context.Context, text, voice string) (Result, er
 				}
 				return Result{}, fmt.Errorf("ChatGPT narration did not complete (%s): %w", phase, ctx.Err())
 			case <-tick.C:
+				if err := audio.writePCM(onPCM); err != nil {
+					return Result{}, err
+				}
 				// Sideband transcript completion can precede the last RTP packets.
 				// Drain a decoded 300 ms quiet tail before closing the media stream.
 				if transcript != "" && audio.drained() {
@@ -416,6 +449,9 @@ func (c *Client) Synthesize(ctx context.Context, text, voice string) (Result, er
 					case err := <-failed:
 						return Result{}, err
 					default:
+					}
+					if err := audio.writePCM(onPCM); err != nil {
+						return Result{}, err
 					}
 					wav, err := audio.wav()
 					return Result{Audio: wav, Transcript: transcript}, err

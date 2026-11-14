@@ -43,13 +43,9 @@ func prepareChatGPTOptions(cmd *cobra.Command, opts *speakOptions) error {
 	if ext := strings.ToLower(filepath.Ext(opts.outputPath)); ext != "" && ext != ".wav" {
 		return fmt.Errorf("ChatGPT voice supports .wav output only")
 	}
-	if cmd.Flags().Changed("stream") && opts.stream {
-		return fmt.Errorf("ChatGPT voice currently uses buffered playback; omit --stream")
-	}
-	opts.stream = false
 	opts.outputFmt = "wav"
 	if !cmd.Flags().Changed("timeout") && strings.TrimSpace(os.Getenv("SAG_TIMEOUT")) == "" {
 		opts.timeout = 90 * time.Second
 	}
-	return nil
+	return preparePCMPlayback(cmd, opts, "ChatGPT")
 }

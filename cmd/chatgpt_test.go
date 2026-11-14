@@ -39,18 +39,23 @@ func TestChatGPTOptions(t *testing.T) {
 	cmd.Flags().String("model-id", "", "")
 	cmd.Flags().Duration("timeout", 0, "")
 	t.Setenv("SAG_TIMEOUT", "")
+	t.Setenv("SAG_PLAYER", "")
 	opts := speakOptions{stream: true, play: true, outputPath: "voice.wav"}
 	if err := prepareChatGPTOptions(cmd, &opts); err != nil {
 		t.Fatal(err)
 	}
-	if opts.stream || opts.outputFmt != "wav" || opts.timeout != 90*time.Second {
+	if !opts.stream || opts.outputFmt != "wav" || opts.timeout != 90*time.Second {
 		t.Fatalf("wrong ChatGPT defaults: %+v", opts)
 	}
 	if err := cmd.Flags().Set("stream", "true"); err != nil {
 		t.Fatal(err)
 	}
 	opts.stream = true
+	if err := prepareChatGPTOptions(cmd, &opts); err != nil {
+		t.Fatal(err)
+	}
+	opts.player = "afplay"
 	if err := prepareChatGPTOptions(cmd, &opts); err == nil {
-		t.Fatal("accepted unsupported streaming")
+		t.Fatal("accepted streaming through a buffered player")
 	}
 }

@@ -43,11 +43,15 @@ selection and configuration remain unchanged. Calls use an ephemeral Codex threa
 with startup context disabled. The input track contains generated silence; sag
 does not record the microphone.
 
-Playback is buffered. Sag decodes Opus into 24 kHz mono PCM and saves a WAV only
-after receiving a completed transcript and draining the audio tail. `--stream`
-is unsupported. Input is capped at 3,500 UTF-8 bytes to avoid native speech-append
-truncation. Split longer text into separate requests. The default timeout is
-90 seconds; `--timeout` and `SAG_TIMEOUT` override it.
+Playback streams decoded 24 kHz mono PCM through Oto as audio arrives, skipping
+startup silence. Connection setup still takes time, but playback no longer waits
+for the whole narration. `--no-stream` or `--player afplay` buffers before playback;
+explicit `--stream --player afplay` is rejected. File-only output is buffered.
+Sag saves a WAV only after a completed transcript, drained audio tail, and
+successful playback (when enabled). Failed synthesis or playback preserves any
+existing output file. Input is capped at 3,500 UTF-8 bytes to avoid native
+speech-append truncation. Split longer text into separate requests. The default
+timeout is 90 seconds; `--timeout` and `SAG_TIMEOUT` override it.
 
 `--model-id`, `--speed`, `--rate`, voice-tuning flags, `--api-key`, `--api-key-file`,
 and `--base-url` are unsupported. Voice preview URLs are unavailable; use a short

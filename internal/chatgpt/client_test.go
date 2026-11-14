@@ -1,8 +1,10 @@
 package chatgpt
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -49,7 +51,7 @@ func TestProtectedHome(t *testing.T) {
 func TestInputRejectedBeforeLogin(t *testing.T) {
 	c := &Client{Home: filepath.Join(t.TempDir(), "missing"), Binary: "missing-codex"}
 	for _, text := range []string{"", strings.Repeat("x", MaxTextBytes+1)} {
-		if _, err := c.Synthesize(context.Background(), text, "maple"); err == nil {
+		if _, err := c.Synthesize(context.Background(), text, "maple", nil); err == nil {
 			t.Fatal("invalid input accepted")
 		}
 	}
@@ -79,6 +81,57 @@ func TestRecordingWAV(t *testing.T) {
 	}
 }
 
+func TestRecordingStreamsBeforeCompletion(t *testing.T) {
+	var r recording
+	var stream bytes.Buffer
+	if err := r.append(make([]int16, sampleRate)); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.writePCM(func(p []byte) error { _, err := stream.Write(p); return err }); err != nil {
+		t.Fatal(err)
+	}
+	if stream.Len() != 0 {
+		t.Fatal("streamed startup silence")
+	}
+	first := []int16{200, -300, 400}
+	if err := r.append(first); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.writePCM(func(p []byte) error {
+		// The decoder remains able to append while the consumer is running.
+		if err := r.append([]int16{500}); err != nil {
+			return err
+		}
+		_, err := stream.Write(p)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if r.drained() {
+		t.Fatal("streaming waited until completion")
+	}
+	if stream.Len() != (sampleRate/10+len(first))*2 {
+		t.Fatalf("wrong preroll: %d", stream.Len())
+	}
+	if err := r.writePCM(func(p []byte) error { _, err := stream.Write(p); return err }); err != nil {
+		t.Fatal(err)
+	}
+	want := []byte{200, 0, 212, 254, 144, 1, 244, 1}
+	if !bytes.Equal(stream.Bytes()[sampleRate/10*2:], want) {
+		t.Fatal("lost, duplicated, or reordered PCM")
+	}
+	if err := r.writePCM(func([]byte) error { t.Fatal("replayed consumed samples"); return nil }); err != nil {
+		t.Fatal(err)
+	}
+	failure := errors.New("speaker unavailable")
+	if err := r.append([]int16{600}); err != nil {
+		t.Fatal(err)
+	}
+	if err := r.writePCM(func([]byte) error { return failure }); !errors.Is(err, failure) {
+		t.Fatalf("lost consumer error: %v", err)
+	}
+}
+
 func TestLiveMapleAccount(t *testing.T) {
 	if os.Getenv("SAG_TEST_CHATGPT_LIVE") != "1" {
 		t.Skip("requires explicit live-test opt-in and a separate ChatGPT sign-in")
@@ -90,7 +143,20 @@ func TestLiveMapleAccount(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
 	const text = "This is an AI generated voice. The Maple voice test is working."
-	result, err := c.Synthesize(ctx, text, "maple")
+	start := time.Now()
+	if _, err := c.ListVoices(ctx); err != nil {
+		t.Fatal(err)
+	}
+	catalogTime := time.Since(start)
+	var firstAudio time.Duration
+	var pcmBytes int
+	result, err := c.Synthesize(ctx, text, "maple", func(pcm []byte) error {
+		if firstAudio == 0 {
+			firstAudio = time.Since(start)
+		}
+		pcmBytes += len(pcm)
+		return nil
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,5 +166,8 @@ func TestLiveMapleAccount(t *testing.T) {
 	if len(result.Audio) < 48000 {
 		t.Fatalf("insufficient audio: %d bytes", len(result.Audio))
 	}
-	t.Logf("Maple: %d WAV bytes; transcript matched", len(result.Audio))
+	if firstAudio == 0 || pcmBytes < len(result.Audio)-44 {
+		t.Fatalf("incomplete stream: first=%s pcm=%d wav=%d", firstAudio, pcmBytes, len(result.Audio))
+	}
+	t.Logf("Maple: catalog=%s; first PCM=%s; complete=%s; %d WAV bytes; transcript matched", catalogTime, firstAudio, time.Since(start), len(result.Audio))
 }

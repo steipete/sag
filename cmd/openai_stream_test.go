@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
-	"github.com/steipete/sag/internal/openai"
 )
 
 func TestOpenAIPlaysBeforeCompletionAndSavesValidatedWAV(t *testing.T) {
@@ -67,9 +66,9 @@ func TestOpenAIPlaysBeforeCompletionAndSavesValidatedWAV(t *testing.T) {
 		}
 	}))
 	defer srv.Close()
-	original := playOpenAIPCM
-	t.Cleanup(func() { playOpenAIPCM = original })
-	playOpenAIPCM = func(_ context.Context, r io.ReadCloser) error {
+	original := playPCM
+	t.Cleanup(func() { playPCM = original })
+	playPCM = func(_ context.Context, r io.ReadCloser) error {
 		first := make([]byte, 4)
 		if _, err := io.ReadFull(r, first); err != nil {
 			return err
@@ -98,11 +97,11 @@ func TestOpenAIPlaysBeforeCompletionAndSavesValidatedWAV(t *testing.T) {
 func TestOpenAIStreamPlayerFailureStopsSynthesis(t *testing.T) {
 	for _, blockedWrite := range []bool{false, true} {
 		t.Run(map[bool]string{false: "network read", true: "audio write"}[blockedWrite], func(t *testing.T) {
-			original := playOpenAIPCM
-			t.Cleanup(func() { playOpenAIPCM = original })
+			original := playPCM
+			t.Cleanup(func() { playPCM = original })
 			started := make(chan struct{})
 			failure := errors.New("device unavailable")
-			playOpenAIPCM = func(context.Context, io.ReadCloser) error { <-started; return failure }
+			playPCM = func(context.Context, io.ReadCloser) error { <-started; return failure }
 			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 			defer cancel()
 			out := filepath.Join(t.TempDir(), "voice.wav")
@@ -111,14 +110,14 @@ func TestOpenAIStreamPlayerFailureStopsSynthesis(t *testing.T) {
 				t.Fatal(err)
 			}
 			joined := false
-			_, err := streamOpenAIAndPlay(ctx, speakOptions{play: true, outputPath: out}, func(ctx context.Context, onPCM func([]byte) error) (openai.Result, error) {
+			_, err := streamPCMAndPlay(ctx, speakOptions{play: true, outputPath: out}, func(ctx context.Context, onPCM func([]byte) error) ([]byte, error) {
 				defer func() { joined = true }()
 				close(started)
 				if blockedWrite {
-					return openai.Result{}, onPCM([]byte{1, 2})
+					return nil, onPCM([]byte{1, 2})
 				}
 				<-ctx.Done()
-				return openai.Result{}, ctx.Err()
+				return nil, ctx.Err()
 			})
 			if !errors.Is(err, failure) || !joined {
 				t.Fatalf("err=%v joined=%t", err, joined)
@@ -132,42 +131,50 @@ func TestOpenAIStreamPlayerFailureStopsSynthesis(t *testing.T) {
 }
 
 func TestOpenAIStreamPreservesProviderFailure(t *testing.T) {
-	original := playOpenAIPCM
-	t.Cleanup(func() { playOpenAIPCM = original })
-	playOpenAIPCM = func(_ context.Context, r io.ReadCloser) error { _, err := io.Copy(io.Discard, r); return err }
+	original := playPCM
+	t.Cleanup(func() { playPCM = original })
+	playPCM = func(_ context.Context, r io.ReadCloser) error { _, err := io.Copy(io.Discard, r); return err }
 	failure := errors.New("incomplete response")
-	_, err := streamOpenAIAndPlay(context.Background(), speakOptions{play: true}, func(_ context.Context, onPCM func([]byte) error) (openai.Result, error) {
+	_, err := streamPCMAndPlay(context.Background(), speakOptions{play: true}, func(_ context.Context, onPCM func([]byte) error) ([]byte, error) {
 		if err := onPCM([]byte{1, 2}); err != nil {
-			return openai.Result{}, err
+			return nil, err
 		}
-		return openai.Result{}, failure
+		return nil, failure
 	})
 	if !errors.Is(err, failure) {
 		t.Fatalf("lost provider error: %v", err)
 	}
 }
 
-func TestOpenAIStreamSelection(t *testing.T) {
-	for _, tc := range []struct {
-		player, env string
-		stream      bool
-	}{
-		{"auto", "", true}, {"oto", "", true}, {"afplay", "", false}, {"auto", "afplay", false}, {"auto", "oto", true},
-	} {
-		t.Run(tc.player+"/"+tc.env, func(t *testing.T) {
-			resetRootCommandState()
-			t.Cleanup(resetRootCommandState)
-			t.Setenv("SAG_PLAYER", tc.env)
-			cmd, _, _ := rootCmd.Find([]string{"speak"})
-			opts := speakOptions{play: true, stream: true, player: tc.player}
-			if err := prepareOpenAIOptions(cmd, &opts); err != nil {
-				t.Fatal(err)
-			}
-			if opts.stream != tc.stream {
-				t.Fatalf("stream=%t want %t", opts.stream, tc.stream)
-			}
-			if tc.stream && !strings.Contains(opts.outputFmt, "wav") {
-				t.Fatal("lost WAV format")
+func TestPCMStreamSelection(t *testing.T) {
+	for _, provider := range []string{providerOpenAI, providerChatGPT} {
+		t.Run(provider, func(t *testing.T) {
+			for _, tc := range []struct {
+				player, env string
+				stream      bool
+			}{
+				{"auto", "", true}, {"oto", "", true}, {"afplay", "", false}, {"auto", "afplay", false}, {"auto", "oto", true},
+			} {
+				t.Run(tc.player+"/"+tc.env, func(t *testing.T) {
+					resetRootCommandState()
+					t.Cleanup(resetRootCommandState)
+					t.Setenv("SAG_PLAYER", tc.env)
+					cmd, _, _ := rootCmd.Find([]string{"speak"})
+					opts := speakOptions{play: true, stream: true, player: tc.player}
+					prepare := prepareOpenAIOptions
+					if provider == providerChatGPT {
+						prepare = prepareChatGPTOptions
+					}
+					if err := prepare(cmd, &opts); err != nil {
+						t.Fatal(err)
+					}
+					if opts.stream != tc.stream {
+						t.Fatalf("stream=%t want %t", opts.stream, tc.stream)
+					}
+					if tc.stream && !strings.Contains(opts.outputFmt, "wav") {
+						t.Fatal("lost WAV format")
+					}
+				})
 			}
 		})
 	}
