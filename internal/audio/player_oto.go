@@ -40,26 +40,41 @@ func StreamViaOto(ctx context.Context, r io.Reader) error {
 		if err != nil {
 			return fmt.Errorf("decode wav: %w", err)
 		}
-		return playPCM(ctx, bytes.NewReader(wav.data), wav.sampleRate, wav.channels)
+		return playPCM(ctx, bytes.NewReader(wav.data), wav.sampleRate, wav.channels, 0)
 	}
 
 	decoder, err := mp3.NewDecoder(reader)
 	if err != nil {
 		return fmt.Errorf("decode mp3: %w", err)
 	}
-	return playPCM(ctx, decoder, decoder.SampleRate(), 2)
+	return playPCM(ctx, decoder, decoder.SampleRate(), 2, 250*time.Millisecond)
 }
 
-func playPCM(ctx context.Context, pcm io.Reader, sampleRate, channelCount int) error {
+// StreamPCM16 plays signed little-endian PCM without waiting for a WAV file.
+// It owns r and closes it on return or cancellation to unblock audio reads.
+func StreamPCM16(ctx context.Context, r io.ReadCloser, sampleRate, channelCount int) error {
+	defer func() { _ = r.Close() }()
+	stop := context.AfterFunc(ctx, func() { _ = r.Close() })
+	defer stop()
+	return playPCM(ctx, r, sampleRate, channelCount, 250*time.Millisecond)
+}
+
+func playPCM(ctx context.Context, pcm io.Reader, sampleRate, channelCount int, prebuffer time.Duration) error {
 	audioCtx, ready, err := getAudioContext(sampleRate, channelCount, oto.FormatSignedInt16LE)
 	if err != nil {
 		return fmt.Errorf("audio context: %w", err)
 	}
-	if ready != nil {
-		<-ready
+	if err := waitForAudioReady(ctx, ready); err != nil {
+		return err
 	}
 
 	player := audioCtx.NewPlayer(pcm)
+	if prebuffer > 0 {
+		// Oto fills this buffer before rendering. At 24 kHz mono its macOS
+		// backend consumes 128 ms per callback; 100 ms underflows even without
+		// network jitter. Keep a reserve without the default 500 ms startup cost.
+		player.SetBufferSize(int(int64(sampleRate*channelCount*2) * int64(prebuffer) / int64(time.Second)))
+	}
 	player.Play()
 
 	return waitForPlayback(ctx, player)
@@ -167,13 +182,23 @@ func getAudioContext(sampleRate, channelCount int, format oto.Format) (*oto.Cont
 	return audioCtx, audioReady, nil
 }
 
-func waitForPlayback(ctx context.Context, player *oto.Player) error {
+type playbackState interface {
+	IsPlaying() bool
+	Pause()
+	Err() error
+}
+
+func waitForPlayback(ctx context.Context, player playbackState) error {
 	ticker := time.NewTicker(playbackPollInterval)
 	defer ticker.Stop()
 
 	for {
+		if err := ctx.Err(); err != nil {
+			player.Pause()
+			return err
+		}
 		if !player.IsPlaying() {
-			return nil
+			return player.Err()
 		}
 		select {
 		case <-ctx.Done():
@@ -181,5 +206,20 @@ func waitForPlayback(ctx context.Context, player *oto.Player) error {
 			return ctx.Err()
 		case <-ticker.C:
 		}
+	}
+}
+
+func waitForAudioReady(ctx context.Context, ready <-chan struct{}) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if ready == nil {
+		return nil
+	}
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-ready:
+		return nil
 	}
 }

@@ -6,10 +6,52 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/hajimehoshi/go-mp3"
 )
+
+func TestLiveStreamingLatency(t *testing.T) {
+	if os.Getenv("SAG_TEST_ELEVENLABS_LIVE") != "1" {
+		t.Skip("requires explicit live-test opt-in and a test-account API key")
+	}
+	client := NewClient(os.Getenv("ELEVENLABS_API_KEY"), "")
+	for _, model := range []string{"eleven_v3", "eleven_flash_v2_5", "eleven_flash_v2_5", "eleven_v3"} {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		start := time.Now()
+		stream, err := client.StreamTTS(ctx, "CwhRBWXzGAHq8TQ4Fs17", TTSRequest{
+			Text:    "This is an AI generated voice. Testing a quick and clear response.",
+			ModelID: model, OutputFormat: "mp3_44100_128",
+		}, 0)
+		if err != nil {
+			cancel()
+			t.Fatal(err)
+		}
+		decoder, err := mp3.NewDecoder(stream)
+		if err != nil {
+			_ = stream.Close()
+			cancel()
+			t.Fatal(err)
+		}
+		// Match Oto's 250 ms source reserve. The decoder emits 16-bit stereo.
+		prefill := make([]byte, decoder.SampleRate()*4/4)
+		_, err = io.ReadFull(decoder, prefill)
+		ready := time.Since(start)
+		if err == nil {
+			_, err = io.Copy(io.Discard, decoder)
+		}
+		_ = stream.Close()
+		cancel()
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Logf("model=%s decoded_prefill=%s complete=%s", model, ready, time.Since(start))
+	}
+}
 
 func TestNewClientDefaultsBase(t *testing.T) {
 	c := NewClient("key", "")

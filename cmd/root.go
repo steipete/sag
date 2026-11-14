@@ -9,6 +9,7 @@ import (
 )
 
 type rootConfig struct {
+	Provider   string
 	APIKey     string
 	APIKeyFile string
 	BaseURL    string
@@ -20,7 +21,7 @@ var (
 	rootCmd     = &cobra.Command{
 		Use:     "sag",
 		Short:   "🗣️ TTS speech, mac-style ease",
-		Long:    "Command-line TTS with macOS-style playback and voice flags. Call it like macOS 'say': if you skip the subcommand, text args are passed to 'speak' (e.g. `sag \"Hello\"`).\n\nTip: run `sag prompting` for ElevenLabs prompting tips. Provider selection is automatic: configure exactly one of ElevenLabs or 60db.",
+		Long:    "Command-line TTS with macOS-style playback and voice flags. Call it like macOS 'say': if you skip the subcommand, text args are passed to 'speak' (e.g. `sag \"Hello\"`).\n\nTip: run `sag prompting` for ElevenLabs prompting tips. Auto-select ElevenLabs or 60db when configured, otherwise OpenAI. Use --provider to select explicitly.",
 		Example: "  sag \"Hi Peter\"\n  echo 'piped input' | sag\n  sag speak -v Roger --rate 200 \"Faster speech\"\n  sag prompting",
 		Version: "0.4.5",
 		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
@@ -43,6 +44,7 @@ func Execute() {
 }
 
 func init() {
+	rootCmd.PersistentFlags().StringVar(&cfg.Provider, "provider", "", "TTS provider: elevenlabs, 60db, openai, chatgpt, or deepgram (ChatGPT and Deepgram require explicit selection)")
 	rootCmd.PersistentFlags().StringVar(&cfg.APIKey, "api-key", "", "ElevenLabs API key (or ELEVENLABS_API_KEY)")
 	rootCmd.PersistentFlags().StringVar(&cfg.APIKeyFile, "api-key-file", "", "Read ElevenLabs API key from file (or ELEVENLABS_API_KEY_FILE)")
 	rootCmd.PersistentFlags().StringVar(&cfg.BaseURL, "base-url", "", "Override the provider API base URL (empty = provider default)")

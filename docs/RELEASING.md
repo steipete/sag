@@ -32,7 +32,7 @@ The caller uses `repository-type: personal`: `Developer ID Application: Peter St
 
 `.goreleaser.yaml` builds both Darwin architectures on macOS. Keep `MACOSX_DEPLOYMENT_TARGET`, `CGO_CFLAGS`, and `CGO_LDFLAGS` pinned to macOS 15.0. Darwin uses external linking so the system linker honors that minimum; the explicit compiler/linker flags also enter Go’s cgo cache key. Every build runs `scripts/check-macos-target`, which requires `otool -l` to report `LC_BUILD_VERSION minos 15.0` before signing.
 
-Use Go 1.27.3 or newer for builds, matching the `go.mod` toolchain directive and CI. The source minimum remains Go 1.25; the newer build toolchain supplies standard-library security fixes.
+Use Go 1.27.4 or newer for builds, matching the `go.mod` toolchain directive and CI. The source minimum remains Go 1.25; the newer build toolchain supplies standard-library security fixes.
 
 `.goreleaser-linux-windows.yaml` builds Linux amd64/arm64 and Windows amd64 on Ubuntu. The credential-free build hook installs both ALSA development architectures and the arm64 cross-compiler from Ubuntu repositories. Windows does not use cgo. Linux executables dynamically link the system ALSA runtime.
 

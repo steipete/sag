@@ -2,6 +2,23 @@
 
 ## 0.4.6 - Unreleased
 
+### Added
+- Deepgram Aura voice support with explicit provider selection, a live voice catalog, streaming PCM playback, and validated WAV output using a dedicated API key.
+- Experimental ChatGPT account voice support, including Maple, via `--provider chatgpt` and a separate `sag login` flow that preserves existing Codex credentials and provider defaults.
+- OpenAI Realtime voice support with `OPENAI_API_KEY` / `OPENAI_API_KEY_FILE`, built-in voice selection, and validated WAV playback/output using `gpt-realtime-2.1-mini` by default.
+- Explicit `--provider` selection for environments with multiple provider credentials; ambient OpenAI keys preserve existing ElevenLabs/60db commands.
+- Start ChatGPT voice playback as PCM arrives instead of waiting for the full narration, while preserving validated WAV saves and buffered playback options.
+- Stream OpenAI PCM playback through Oto while retaining validated WAV saves and buffered `afplay` playback.
+- Warn when OpenAI narration transcripts differ from the input or are unavailable, with guidance to review the audio before sharing or relying on it, without exposing either text.
+
+### Fixed
+
+- Start ElevenLabs streamed MP3 playback through Oto by default instead of waiting for the full file on macOS; preserve explicit player selection and reduce MP3 prebuffering to 250 ms.
+- Build with Go 1.27.4 and update `golang.org/x/net` to fix GO-2026-6859 and GO-2026-5942, including the WebRTC DNS path.
+- Add opt-in ChatGPT `--keep-alive` on Unix: prepare a fresh session during playback, reuse the in-memory voice catalog, and send narration over the active WebRTC channel to reduce repeat-request startup delay without reusing conversation history.
+- Reduce streaming PCM player startup buffering from 500 ms to 250 ms while retaining enough audio for macOS render blocks and delivery jitter; start the ChatGPT WebRTC audio clock before the data channel opens.
+- Avoid a blocked writer when buffered playback fails, honor cancellation while waiting for Oto startup, and report Oto playback errors.
+
 ## 0.4.5 - 2026-10-23
 
 **Highlights:** Streamed playback stops upstream work promptly and preserves player and provider errors.

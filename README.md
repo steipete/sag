@@ -1,4 +1,4 @@
-# sag 🗣️ — “Mac-style speech with ElevenLabs or 60db”
+# sag 🗣️ — “Mac-style speech with ElevenLabs, 60db, OpenAI, or Deepgram”
 
 One-liner TTS that works like `say`: stream to speakers by default, list voices, or save audio files.
 
@@ -26,15 +26,19 @@ sudo apt install build-essential pkg-config libasound2-dev
 
 ## Configuration
 
-`sag` supports two TTS providers and auto-selects one from your configured credentials:
+`sag` supports four API-key TTS providers and an experimental ChatGPT account provider:
 
 - **ElevenLabs** — `ELEVENLABS_API_KEY` (or `--api-key`, or `--api-key-file` / `ELEVENLABS_API_KEY_FILE` / `SAG_API_KEY_FILE`)
+- **OpenAI Realtime** — `OPENAI_API_KEY` (or `OPENAI_API_KEY_FILE`)
+- **Deepgram Aura** — explicit `--provider deepgram`, with `DEEPGRAM_API_KEY` (or `DEEPGRAM_API_KEY_FILE`).
 - **60db** (`api.60db.ai`) — `SIXTYDB_API_KEY` (or `SIXTYDB_API_KEY_FILE`)
+- **ChatGPT account** — explicit `--provider chatgpt`, with a separate sign-in and an installed Codex CLI.
 
 Selection rules:
-- Only one key set → that provider is used.
-- Both keys set → error; unset one provider key and retry.
-- Neither set → error.
+- `--provider elevenlabs|60db|openai|chatgpt|deepgram` explicitly selects a provider.
+- Otherwise, a configured ElevenLabs or 60db provider is used. Configuring both still requires explicit selection.
+- OpenAI is auto-selected only when neither ElevenLabs nor 60db is configured; ambient OpenAI credentials do not change existing commands.
+- No key set → error.
 
 Optional ElevenLabs defaults: `ELEVENLABS_VOICE_ID` or `SAG_VOICE_ID`. Override the active provider host with `--base-url`.
 
@@ -44,9 +48,79 @@ Optional ElevenLabs defaults: `ELEVENLABS_VOICE_ID` or `SAG_VOICE_ID`. Override 
 - incomplete or malformed provider responses fail instead of producing a truncated file
 - 60db currently supports WAV playback/output only; its live synthesis response is buffered rather than streamed
 
-Shared speak flags that work on both providers include `--voice`, `--speed` / `--rate`, `--stability`, `--similarity`, `--play`, `--output`, `--timeout`, and `--metrics`. On 60db, `--format` accepts only `wav`, and an explicit `--stream` is rejected.
+Shared speak flags that work on ElevenLabs and 60db include `--voice`, `--speed` / `--rate`, `--stability`, `--similarity`, `--play`, `--output`, `--timeout`, and `--metrics`. On 60db, `--format` accepts only `wav`, and an explicit `--stream` is rejected.
 
-ElevenLabs-only speak flags fail fast on 60db: `--model-id`, `--style`, `--speaker-boost` / `--no-speaker-boost`, `--seed`, `--normalize`, `--lang`, and `--latency-tier`. `--stability` / `--similarity` still use the CLI's `0..1` range and are scaled to 60db's documented `0..100` API values. See [docs/providers.md](docs/providers.md) for provider-specific details.
+These ElevenLabs speak flags fail fast on 60db: `--model-id`, `--style`, `--speaker-boost` / `--no-speaker-boost`, `--seed`, `--normalize`, `--lang`, and `--latency-tier`. `--stability` / `--similarity` still use the CLI's `0..1` range and are scaled to 60db's documented `0..100` API values. See [docs/providers.md](docs/providers.md) for provider-specific details.
+
+### OpenAI voices
+
+```sh
+# With OPENAI_API_KEY set:
+sag --provider openai -v marin "Hello world"
+sag --provider openai -o hello.wav "Save a voice note"
+sag voices --provider openai
+```
+
+OpenAI uses the Realtime API with `gpt-realtime-2.1-mini` by default; override it
+with `--model-id`. Normal-speed requests start without a session-configuration round trip.
+Playback streams PCM through Oto by default. Use `--no-stream` or `--player afplay`
+for buffered playback; explicit `--stream --player afplay` is rejected.
+Files are 24 kHz mono WAV and are saved only after successful completion.
+Non-WAV formats and ElevenLabs voice-tuning flags are rejected.
+`--speed` / `--rate` support 0.5–1.5× speed. Built-in voice listing is local;
+preview URLs are not available. Realtime is generative: sag requests verbatim
+narration, but the model can change wording. After generation, sag compares the
+returned transcript with the input and warns about differences or missing transcripts
+without printing either text. This ignores case and punctuation; number expansions
+and homophones can still produce warnings. Streaming may play changed words before
+the warning arrives. Tell listeners the voice is AI-generated.
+See [providers](docs/providers.md) for details.
+
+### Deepgram Aura voices
+
+```sh
+# With DEEPGRAM_API_KEY set:
+sag --provider deepgram "Hello from Thalia"
+sag --provider deepgram -v aura-2-apollo-en "Hello from Apollo"
+sag voices --provider deepgram --search thalia
+sag --provider deepgram -o hello.wav "Save a voice note"
+```
+
+Deepgram is always selected explicitly, so its key does not change existing
+commands. Aura audio streams as 24 kHz mono PCM through Oto; saved files are
+validated WAV. Thalia is the default voice. See [providers](docs/providers.md)
+for the supported flags and live voice catalog.
+
+### ChatGPT account voices (experimental)
+
+Use ChatGPT voices such as Maple through Codex's native voice transport:
+
+```sh
+sag login --provider chatgpt --device-auth
+sag --provider chatgpt -v maple "Hello world"
+sag --provider chatgpt -v maple -o hello.wav "Save a voice note"
+sag voices --provider chatgpt
+```
+
+Requires Codex CLI 0.169.0 or a compatible release and a ChatGPT account with
+voice access. This experimental transport is separate from the public OpenAI
+Realtime API. Authentication lives in `~/.config/sag/chatgpt`; sag never imports
+or replaces your normal Codex login. Existing provider selection stays unchanged.
+
+Playback streams through Oto as audio arrives; output is 24 kHz mono WAV. Use
+`--no-stream` or `--player afplay` for buffered playback. Streaming uses a 250 ms
+player prebuffer; a fresh account connection still adds startup latency.
+On Unix, add `--keep-alive 1m` to keep one fresh voice session ready for the next
+request. The first call still connects; subsequent calls can start sooner. Each
+session narrates only once, so previous requests cannot alter the next script.
+The local worker closes after the idle timeout (maximum 5 minutes). This is off
+by default, and idle connections can count toward account voice usage.
+
+`--metrics` includes time to the first PCM chunk during streaming. Requests are limited to
+3,500 UTF-8 bytes. Model, speed, and voice-tuning
+flags are unsupported. The default timeout is 90 seconds. As with other generative
+voices, review narration for wording changes and disclose that it is AI-generated.
+See [providers](docs/providers.md#chatgpt-account-experimental) for configuration.
 
 ## Usage
 
@@ -101,7 +175,7 @@ Key flags (subset):
 - `--stream/--no-stream` stream while generating (default on)
 - `--latency-tier` 0–4 lower latency tiers
 - `--play/--no-play` control speaker playback
-- `--player auto|afplay|oto` choose playback backend (`auto` uses `afplay` on macOS and `oto` elsewhere; also configurable via `SAG_PLAYER`)
+- `--player auto|afplay|oto` choose playback backend (`auto` uses Oto for streamed MP3/PCM; other playback uses `afplay` on macOS and Oto elsewhere; also configurable via `SAG_PLAYER`)
 - `--timeout` maximum TTS generation time, e.g. `--timeout 5m`; `0` means no internal timeout (default, also configurable via `SAG_TIMEOUT`)
 - `--metrics` print basic stats to stderr
 

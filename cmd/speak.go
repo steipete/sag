@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -12,7 +13,10 @@ import (
 	"time"
 
 	"github.com/steipete/sag/internal/audio"
+	"github.com/steipete/sag/internal/chatgpt"
+	"github.com/steipete/sag/internal/deepgram"
 	"github.com/steipete/sag/internal/elevenlabs"
+	"github.com/steipete/sag/internal/openai"
 	"github.com/steipete/sag/internal/sixtydb"
 	"github.com/steipete/sag/internal/tts"
 
@@ -39,6 +43,7 @@ type speakOptions struct {
 	metrics     bool
 	timeout     time.Duration
 	player      string
+	keepAlive   time.Duration
 
 	speakerBoost   bool
 	noSpeakerBoost bool
@@ -59,14 +64,16 @@ func init() {
 
 	cmd := &cobra.Command{
 		Use:   "speak [text]",
-		Short: "Speak the provided text using ElevenLabs TTS (default: stream to speakers)",
+		Short: "Speak the provided text using the configured TTS provider",
 		Long:  "If no text argument is provided, the command reads from stdin.\n\nTip: run `sag prompting` for model-specific prompting tips and recommended flag combinations.",
 		Args:  cobra.ArbitraryArgs,
-		PreRunE: func(_ *cobra.Command, _ []string) error {
-			return ensureProviderConfigured()
-		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := applyRateAndSpeed(&opts); err != nil {
+			provider, err := selectProvider()
+			if err != nil {
+				return err
+			}
+
+			if err := applyRateAndSpeed(&opts, provider.name); err != nil {
 				return err
 			}
 			if err := applyCompatibilityFlags(cmd, &opts); err != nil {
@@ -76,9 +83,14 @@ func init() {
 				return err
 			}
 
-			provider, err := selectProvider()
-			if err != nil {
-				return err
+			if opts.keepAlive != 0 {
+				if provider.name != providerChatGPT {
+					return errors.New("--keep-alive requires --provider chatgpt")
+				}
+				if err := chatgpt.ValidateKeepAlive(opts.keepAlive); err != nil {
+					return err
+				}
+				provider.chatgpt.KeepAlive = opts.keepAlive
 			}
 
 			forceVoiceID := cmd.Flags().Changed("voice-id")
@@ -91,6 +103,10 @@ func init() {
 					voiceInput = env
 					forceVoiceID = true
 				}
+			}
+
+			if provider.name == providerDeepgram && voiceInput == "" {
+				voiceInput, forceVoiceID = deepgram.DefaultVoice, true
 			}
 
 			voiceID, err := resolveVoice(cmd.Context(), provider.voices, voiceInput, forceVoiceID)
@@ -122,8 +138,25 @@ func init() {
 				}
 			}
 
+			if provider.name == providerOpenAI {
+				if err := prepareOpenAIOptions(cmd, &opts); err != nil {
+					return err
+				}
+			}
+
 			if provider.name == providerSixtyDB {
 				if err := prepareSixtyDBOptions(cmd, &opts); err != nil {
+					return err
+				}
+			}
+			if provider.name == providerChatGPT {
+				if err := prepareChatGPTOptions(cmd, &opts); err != nil {
+					return err
+				}
+			}
+
+			if provider.name == providerDeepgram {
+				if err := prepareDeepgramOptions(cmd, &opts); err != nil {
 					return err
 				}
 			}
@@ -135,11 +168,27 @@ func init() {
 			defer cancel()
 
 			var (
-				streamFunc  func(context.Context) (io.ReadCloser, error)
-				convertFunc func(context.Context) ([]byte, error)
+				streamFunc    func(context.Context) (io.ReadCloser, error)
+				convertFunc   func(context.Context) ([]byte, error)
+				synthesizePCM pcmSynthesizer
 			)
 			switch provider.name {
+			case providerDeepgram:
+				synthesizePCM = func(ctx context.Context, onPCM func([]byte) error) ([]byte, error) {
+					return provider.deepgram.Synthesize(ctx, text, opts.voiceID, opts.speed, onPCM)
+				}
+			case providerChatGPT:
+				synthesizePCM = func(ctx context.Context, onPCM func([]byte) error) ([]byte, error) {
+					result, err := provider.chatgpt.Synthesize(ctx, text, opts.voiceID, onPCM)
+					if err == nil {
+						if warning := openai.CheckTranscript(text, result.Transcript); warning != "" {
+							fmt.Fprintln(os.Stderr, "warning:", warning)
+						}
+					}
+					return result.Audio, err
+				}
 			case providerElevenLabs:
+				prepareElevenLabsPlayback(&opts)
 				payload, err := buildElevenLabsTTSRequest(cmd, opts, text)
 				if err != nil {
 					return err
@@ -149,6 +198,17 @@ func init() {
 				}
 				convertFunc = func(ctx context.Context) ([]byte, error) {
 					return provider.elevenlabs.ConvertTTS(ctx, opts.voiceID, payload)
+				}
+			case providerOpenAI:
+				payload := openai.TTSRequest{Text: text, ModelID: opts.modelID, VoiceID: opts.voiceID, Speed: opts.speed}
+				synthesizePCM = func(ctx context.Context, onPCM func([]byte) error) ([]byte, error) {
+					result, err := provider.openai.Synthesize(ctx, payload, onPCM)
+					if err == nil {
+						if warning := openai.CheckTranscript(text, result.Transcript); warning != "" {
+							fmt.Fprintln(os.Stderr, "warning:", warning)
+						}
+					}
+					return result.Audio, err
 				}
 			case providerSixtyDB:
 				payload, err := buildSixtyDBTTSRequest(cmd, opts, text)
@@ -165,9 +225,19 @@ func init() {
 				return fmt.Errorf("unsupported provider %q", provider.name)
 			}
 
+			if synthesizePCM != nil {
+				convertFunc = func(ctx context.Context) ([]byte, error) { return synthesizePCM(ctx, nil) }
+			}
+
 			start := time.Now()
 			var bytes int64
-			if opts.stream {
+			if opts.stream && synthesizePCM != nil {
+				n, err := streamPCMAndPlay(ctx, opts, synthesizePCM)
+				bytes = n
+				if err != nil {
+					return err
+				}
+			} else if opts.stream {
 				n, err := streamAndPlay(ctx, opts, streamFunc)
 				bytes = n
 				if err != nil {
@@ -181,7 +251,7 @@ func init() {
 				}
 			}
 			if opts.metrics {
-				if provider.name == providerElevenLabs {
+				if provider.name == providerElevenLabs || provider.name == providerOpenAI {
 					fmt.Fprintf(os.Stderr, "metrics: chars=%d bytes=%d provider=%s model=%s voice=%s stream=%t latencyTier=%d dur=%s\n",
 						len([]rune(text)), bytes, provider.name, opts.modelID, opts.voiceID, opts.stream, opts.latencyTier, time.Since(start).Truncate(time.Millisecond))
 				} else {
@@ -195,7 +265,7 @@ func init() {
 
 	cmd.Flags().StringVar(&opts.voiceID, "voice-id", "", "Voice ID to use (ELEVENLABS_VOICE_ID)")
 	cmd.Flags().StringVarP(&opts.voiceID, "voice", "v", "", "Alias for --voice-id; accepts name or ID; use '?' to list voices")
-	cmd.Flags().StringVar(&opts.modelID, "model-id", opts.modelID, "Model ID (default: eleven_v3). Common: eleven_multilingual_v2 (stable), eleven_flash_v2_5 (fast/cheap), eleven_turbo_v2_5 (balanced).")
+	cmd.Flags().StringVar(&opts.modelID, "model-id", opts.modelID, "Model ID (OpenAI default: gpt-realtime-2.1-mini; ElevenLabs default: eleven_v3). Common: eleven_multilingual_v2 (stable), eleven_flash_v2_5 (fast/cheap), eleven_turbo_v2_5 (balanced).")
 	cmd.Flags().StringVarP(&opts.outputPath, "output", "o", "", "Write audio to file (disables playback unless --play is also set)")
 	cmd.Flags().StringVar(&opts.outputFmt, "format", opts.outputFmt, "Output format (e.g. mp3_44100_128)")
 	cmd.Flags().BoolVar(&opts.stream, "stream", opts.stream, "Stream audio while generating")
@@ -216,7 +286,8 @@ func init() {
 	cmd.Flags().StringVar(&opts.lang, "lang", "", "Language code (2-letter ISO 639-1; influences normalization; when set)")
 	cmd.Flags().BoolVar(&opts.metrics, "metrics", false, "Print request metrics to stderr (chars, bytes, duration, etc.)")
 	cmd.Flags().DurationVar(&opts.timeout, "timeout", 0, "Maximum time for TTS generation (0 disables sag's internal timeout; SAG_TIMEOUT)")
-	cmd.Flags().StringVar(&opts.player, "player", "auto", "Audio backend: auto (afplay on macOS, oto elsewhere), afplay, oto (SAG_PLAYER)")
+	cmd.Flags().DurationVar(&opts.keepAlive, "keep-alive", 0, "Keep a fresh ChatGPT voice session ready for this long after use (Unix, maximum 5m)")
+	cmd.Flags().StringVar(&opts.player, "player", "auto", "Audio backend: auto (oto for streamed MP3/PCM; otherwise afplay on macOS, oto elsewhere), afplay, oto (SAG_PLAYER)")
 	cmd.Flags().StringVarP(&opts.inputFile, "input-file", "f", "", "Read text from file (use '-' for stdin), matching macOS say -f")
 	cmd.Flags().Bool("progress", false, "Accepted for macOS say compatibility (no-op)")
 	cmd.Flags().String("network-send", "", "Accepted for macOS say compatibility (not implemented)")
@@ -229,6 +300,15 @@ func init() {
 	cmd.Flags().Int("quality", 0, "Accepted for macOS say compatibility (not implemented)")
 
 	rootCmd.AddCommand(cmd)
+}
+
+func prepareElevenLabsPlayback(opts *speakOptions) {
+	player := resolvedPlayer(opts.player)
+	if opts.play && opts.stream && strings.HasPrefix(opts.outputFmt, "mp3_") && (player == "" || player == "auto") {
+		// afplay waits for the complete file. Use the incremental decoder for
+		// streamed MP3, while preserving explicit routing and other codecs.
+		opts.player = "oto"
+	}
 }
 
 func applyCompatibilityFlags(cmd *cobra.Command, opts *speakOptions) error {
@@ -256,14 +336,18 @@ func applyCompatibilityFlags(cmd *cobra.Command, opts *speakOptions) error {
 	return nil
 }
 
-func playbackFunc(choice string) (func(context.Context, io.Reader) error, error) {
+func resolvedPlayer(choice string) string {
 	choice = strings.ToLower(strings.TrimSpace(choice))
 	if choice == "" || choice == "auto" {
 		if env := strings.TrimSpace(os.Getenv("SAG_PLAYER")); env != "" {
 			choice = strings.ToLower(env)
 		}
 	}
-	switch choice {
+	return choice
+}
+
+func playbackFunc(choice string) (func(context.Context, io.Reader) error, error) {
+	switch resolvedPlayer(choice) {
 	case "", "auto":
 		return playToSpeakers, nil
 	case "afplay":
@@ -303,16 +387,20 @@ func ttsContext(parent context.Context, timeout time.Duration) (context.Context,
 	return ctx, cancel, nil
 }
 
-func applyRateAndSpeed(opts *speakOptions) error {
+func applyRateAndSpeed(opts *speakOptions, provider string) error {
 	if opts.rateWPM > 0 {
-		// Map macOS `say` rate (words per minute) to ElevenLabs speed multiplier.
 		opts.speed = float64(opts.rateWPM) / float64(defaultWPM)
-		if opts.speed <= 0.5 || opts.speed >= 2.0 {
-			return fmt.Errorf("rate %d wpm maps to speed %.2f, which is outside the allowed 0.5–2.0 range", opts.rateWPM, opts.speed)
+	}
+	if provider == providerOpenAI {
+		if !(opts.speed >= 0.5 && opts.speed <= 1.5) {
+			return errors.New("OpenAI speed must be between 0.5 and 1.5")
 		}
 		return nil
 	}
 	if opts.speed <= 0.5 || opts.speed >= 2.0 {
+		if opts.rateWPM > 0 {
+			return fmt.Errorf("rate %d wpm maps to speed %.2f, which is outside the allowed 0.5–2.0 range", opts.rateWPM, opts.speed)
+		}
 		return errors.New("speed must be between 0.5 and 2.0 (e.g. 1.1 for 10% faster)")
 	}
 	return nil
@@ -625,12 +713,7 @@ func convertAndPlay(ctx context.Context, opts speakOptions, convert func(context
 		if err != nil {
 			return n, err
 		}
-		pr, pw := io.Pipe()
-		go func() {
-			_, _ = pw.Write(data)
-			_ = pw.Close()
-		}()
-		return n, player(ctx, pr)
+		return n, player(ctx, bytes.NewReader(data))
 	}
 	return n, nil
 }

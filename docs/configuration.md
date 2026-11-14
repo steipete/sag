@@ -21,8 +21,12 @@ Required for any TTS or voice call. `sag --help`, `sag prompting`, and `sag --ve
 | ElevenLabs | `SAG_API_KEY_FILE` | Alias. |
 | 60db | `SIXTYDB_API_KEY` | Primary env var. |
 | 60db | `SIXTYDB_API_KEY_FILE` | Read the key from a file. |
+| OpenAI | `OPENAI_API_KEY` | Primary env var; takes precedence over its key file. |
+| OpenAI | `OPENAI_API_KEY_FILE` | Read the key from a file. |
+| Deepgram | `DEEPGRAM_API_KEY` | Explicit `--provider deepgram`; takes precedence over its key file. |
+| Deepgram | `DEEPGRAM_API_KEY_FILE` | Read the key from a file. |
 
-Configure exactly one provider at a time. If both ElevenLabs and 60db credentials are present, `sag` errors instead of guessing.
+Choose `--provider elevenlabs|60db|openai|chatgpt|deepgram` to select explicitly. Automatic selection prefers an existing ElevenLabs or 60db configuration; an ambient OpenAI key does not change it. Configuring both ElevenLabs and 60db is still ambiguous. OpenAI is auto-selected when neither is configured. With explicit selection, only the selected provider's key sources are read. The legacy `--api-key` and `--api-key-file` flags remain ElevenLabs-only.
 
 The file form is handy for agents and containers:
 
@@ -40,7 +44,7 @@ When `--voice` / `--voice-id` is omitted, `sag` resolves in this order:
 2. `SAG_VOICE_ID`
 3. The first voice returned by the active provider's voice listing (logged on stderr so you notice).
 
-The env defaults apply only to ElevenLabs. With 60db, `sag` falls back to the first merged result from `/default-voices` and `/myvoices`.
+Deepgram defaults to `aura-2-thalia-en` without a catalog request. The env defaults apply only to ElevenLabs. With 60db, `sag` falls back to the first merged result from `/default-voices` and `/myvoices`.
 
 ```bash
 export SAG_VOICE_ID=21m00Tcm4TlvDq8ikWAM
@@ -69,13 +73,13 @@ The flag wins over the environment variable; both accept any `time.ParseDuration
 SAG_TIMEOUT=10m sag --no-play -o long.mp3 "$(<chapter.txt)"
 ```
 
-When sag is the bottleneck and the shell aborts the request, you’ll get a partial file. Use `ffprobe` to sanity-check duration before publishing.
+Interrupted ElevenLabs streaming can leave a partial file. OpenAI writes files only after complete synthesis. Streamed playback also waits for playback to succeed before saving; buffered playback saves the completed audio before playback begins. Use `ffprobe` to sanity-check duration before publishing.
 
 ## Player backend
 
 | Value | Behaviour |
 | --- | --- |
-| `auto` (default) | `afplay` on macOS, `oto` everywhere else. |
+| `auto` (default) | Oto for ElevenLabs streamed MP3 and OpenAI/ChatGPT/Deepgram streamed PCM; otherwise `afplay` on macOS and Oto elsewhere. |
 | `afplay` | macOS only; routes through CoreAudio so AirPlay and Bluetooth zones work. |
 | `oto` | Cross-platform MP3/WAV decoder + `oto`. |
 
