@@ -1,5 +1,7 @@
 # Changelog
 
+## 0.4.7 - Unreleased
+
 ## 0.4.6 - 2026-11-15
 
 **Highlights:** Preserve 60db audio prefixes, accept the full documented speed range, and update the patched Go build toolchain.
