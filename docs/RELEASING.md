@@ -6,7 +6,7 @@ summary: 'Release checklist for sag (signed GitHub release + Homebrew tap)'
 
 The manually dispatched `Release (unified)` workflow calls the shared [Go CLI archetype](https://github.com/openclaw/release-workflows) at v1.11.8, commit `fc49859568b3781af7663bee48c003fd987dc08b`. It freezes protected `main`, verifies the fleet-signed annotated version tag, builds, Developer ID signs and notarizes macOS binaries, and publishes only after independent Apple Silicon and x86_64 verification. macOS jobs use Apple Silicon `xcode-27` runners; x86_64 verification runs under Rosetta. Pushing a tag alone does not start a release.
 
-To validate the current version from merged `main` without creating tags, releases, or Homebrew updates, dispatch `gh workflow run release-unified.yml --repo steipete/sag --ref main -f version=0.4.5 -F dry_run=true`. This still builds, signs, and verifies the release artifacts.
+To validate the current version from merged `main` without creating tags, releases, or Homebrew updates, dispatch `gh workflow run release-unified.yml --repo steipete/sag --ref main -f version=0.4.6 -F dry_run=true`. This still builds, signs, and verifies the release artifacts.
 
 ## Repository setup
 
