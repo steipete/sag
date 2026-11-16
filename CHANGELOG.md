@@ -1,6 +1,8 @@
 # Changelog
 
-## 0.4.6 - Unreleased
+## 0.4.6 - 2026-11-15
+
+**Highlights:** Preserve 60db audio prefixes, accept the full documented speed range, and update the patched Go build toolchain.
 
 ### Fixed
 - Preserve 60db PCM beginning with a brace or an MP3-like sync prefix, and accept the documented 0.5–2.0 speed endpoints. Thanks @SebTardif.
